@@ -261,3 +261,5 @@ function SpotSearch({onSelect,currentLocation,onOpenMap}){
     </div>
   );
 }
+
+export default function App(){return null;}

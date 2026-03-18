@@ -20,7 +20,7 @@ function Select({ label, value, onChange, options, T }) {
   );
 }
 
-export default function Planner({ T, dark }) {
+export default function Planner({ T, dark, onGoToConditions }) {
   const now = new Date();
   const [sport,    setSport]    = useState("surf");
   const [month,    setMonth]    = useState(now.getMonth());
@@ -71,7 +71,10 @@ export default function Planner({ T, dark }) {
                 <div style={{fontSize:13,fontWeight:800,color:T.text}}>{selected.name}</div>
                 <div style={{fontSize:10,color:T.sub}}>{selected.country} · {selected.region}</div>
               </div>
+              <div style={{display:"flex",gap:6}}>
+              {onGoToConditions&&<button onClick={()=>onGoToConditions(selected)} style={{padding:"4px 10px",borderRadius:3,border:"1px solid #6366f1",background:"#6366f1",color:"white",fontSize:10,fontWeight:700,cursor:"pointer",letterSpacing:0.5}}>CONDITIONS →</button>}
               <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",color:T.sub,cursor:"pointer",fontSize:14,padding:2}}>✕</button>
+            </div>
             </div>
             <MonthChart spot={selected} sport={sport} currentMonth={month} onMonthSelect={setMonth} T={T}/>
           </div>

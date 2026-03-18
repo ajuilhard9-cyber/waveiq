@@ -4,8 +4,9 @@ import Planner from './module1/Planner';
 import Dashboard from './module2/Dashboard';
 
 export default function App() {
-  const [dark, setDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
-  const [tab,  setTab]  = useState("plan");
+  const [dark,      setDark]      = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const [tab,       setTab]       = useState("plan");
+  const [crossSpot, setCrossSpot] = useState(null); // spot passed from Planner → Dashboard
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -15,6 +16,15 @@ export default function App() {
   }, []);
 
   const T = makeTheme(dark);
+
+  function goToConditions(spot) {
+    setCrossSpot(spot);
+    setTab("conditions");
+  }
+
+  function clearCrossSpot() {
+    setCrossSpot(null);
+  }
 
   return (
     <div style={{height:"100vh",display:"flex",flexDirection:"column",background:T.bg,color:T.text,fontFamily:"DM Sans,sans-serif",overflow:"hidden"}}>
@@ -29,13 +39,16 @@ export default function App() {
             </button>
           ))}
         </div>
-        <div style={{marginLeft:"auto",width:8,height:8,borderRadius:"50%",background:"#22c55e",boxShadow:"0 0 6px #22c55e88"}} title="APIs live"/>
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6}}>
+          <div style={{width:7,height:7,borderRadius:"50%",background:"#22c55e",boxShadow:"0 0 6px #22c55e88"}}/>
+          <span style={{fontSize:10,color:T.sub,fontWeight:600}}>LIVE</span>
+        </div>
       </div>
 
-      {/* Modules — fill remaining height */}
+      {/* Modules */}
       <div style={{flex:1,overflow:"hidden"}}>
-        {tab === "plan"       && <Planner   T={T} dark={dark}/>}
-        {tab === "conditions" && <Dashboard T={T} dark={dark}/>}
+        {tab==="plan"       && <Planner   T={T} dark={dark} onGoToConditions={goToConditions}/>}
+        {tab==="conditions" && <Dashboard T={T} dark={dark} initialSpot={crossSpot} onClearInitial={clearCrossSpot}/>}
       </div>
     </div>
   );

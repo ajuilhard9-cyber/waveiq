@@ -59,7 +59,7 @@ export default function Dashboard({ T, dark }) {
       {/* Detail hero */}
       <div style={{position:"relative",overflow:"hidden",background:"linear-gradient(135deg,#4338ca 0%,#6366f1 50%,#818cf8 100%)",padding:"20px 24px 60px"}}>
         <div style={{position:"absolute",top:-40,right:-40,width:200,height:200,borderRadius:"50%",background:"rgba(255,255,255,0.06)",pointerEvents:"none"}}/>
-        <div style={{maxWidth:480,margin:"0 auto"}}>
+        <div style={{maxWidth:680,margin:"0 auto"}}>
           <button onClick={()=>{setSpot(null);setData(null);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",fontSize:13,cursor:"pointer",padding:"7px 14px",borderRadius:20,fontWeight:600,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>← Back</button>
           <div style={{fontSize:11,color:"rgba(255,255,255,0.65)",letterSpacing:1.5,fontWeight:600,marginBottom:6}}>{spot.country?.toUpperCase()} · {spot.region?.toUpperCase()}</div>
           <div style={{fontSize:36,fontWeight:900,fontFamily:"Syne,sans-serif",color:"white",letterSpacing:-1,lineHeight:1.1,marginBottom:20}}>{spot.name}</div>
@@ -69,7 +69,7 @@ export default function Dashboard({ T, dark }) {
         </div>
       </div>
       {/* Content */}
-      <div style={{maxWidth:480,margin:"-24px auto 0",padding:"0 16px 40px",position:"relative",zIndex:2}}>
+      <div style={{maxWidth:680,margin:"-24px auto 0",padding:"0 16px 40px",position:"relative",zIndex:2}}>
         {data&&!data.err&&<div style={{height:4,background:`linear-gradient(90deg,${sc.border},${sc.border}88)`,borderRadius:4,marginBottom:12}}/>}
         {/* Level */}
         <div style={{background:T.card,borderRadius:20,padding:"14px 16px",boxShadow:T.shadow,marginBottom:12}}>
@@ -110,7 +110,7 @@ export default function Dashboard({ T, dark }) {
       <div style={{position:"relative",overflow:"hidden",background:"linear-gradient(135deg,#4338ca 0%,#6366f1 45%,#818cf8 75%,#38bdf8 100%)",padding:"52px 24px 80px"}}>
         <div style={{position:"absolute",top:-60,right:-60,width:260,height:260,borderRadius:"50%",background:"rgba(255,255,255,0.07)",pointerEvents:"none"}}/>
         <div style={{position:"absolute",bottom:-80,left:-40,width:300,height:300,borderRadius:"50%",background:"rgba(255,255,255,0.05)",pointerEvents:"none"}}/>
-        <div style={{position:"relative",maxWidth:480,margin:"0 auto"}}>
+        <div style={{position:"relative",maxWidth:680,margin:"0 auto"}}>
           <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.15)",backdropFilter:"blur(8px)",borderRadius:20,padding:"5px 12px",marginBottom:18}}>
             <div style={{width:7,height:7,borderRadius:"50%",background:"#a5f3fc"}}/>
             <span style={{fontSize:11,fontWeight:600,color:"rgba(255,255,255,0.9)",letterSpacing:1}}>ON-LOCATION</span>
@@ -120,7 +120,7 @@ export default function Dashboard({ T, dark }) {
           <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search any spot…" style={{width:"100%",padding:"15px 18px",borderRadius:16,border:"none",background:"rgba(255,255,255,0.18)",backdropFilter:"blur(12px)",color:"white",fontSize:15,boxSizing:"border-box",outline:"none"}} onFocus={e=>e.target.style.background="rgba(255,255,255,0.25)"} onBlur={e=>e.target.style.background="rgba(255,255,255,0.18)"}/>
         </div>
       </div>
-      <div style={{padding:"0 16px",maxWidth:480,margin:"-28px auto 0",position:"relative",zIndex:2}}>
+      <div style={{padding:"0 16px",maxWidth:680,margin:"-28px auto 0",position:"relative",zIndex:2}}>
         {srList.length>0
           ?<><div style={{fontSize:9,color:T.sub,letterSpacing:2.5,marginBottom:12,fontWeight:600,paddingTop:8}}>RESULTS</div>{srList.map(s=><SpotCard key={s.id} s={s} onClick={()=>pick(s)} T={T}/>)}</>
           :<><div style={{fontSize:9,color:T.sub,letterSpacing:2.5,marginBottom:12,fontWeight:600,paddingTop:8}}>{geo===null?"DETECTING LOCATION…":geo==="denied"?"ALL SPOTS":"NEAREST SPOTS"}</div>{listSpots.map(s=><SpotCard key={s.id} s={s} onClick={()=>pick(s)} T={T}/>)}</>

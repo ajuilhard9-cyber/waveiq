@@ -5,7 +5,7 @@ import Dashboard from './module2/Dashboard';
 
 export default function App() {
   const [dark, setDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
-  const [tab,  setTab]  = useState("conditions"); // "plan" | "conditions"
+  const [tab,  setTab]  = useState("plan");
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -17,24 +17,26 @@ export default function App() {
   const T = makeTheme(dark);
 
   return (
-    <div style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"DM Sans,sans-serif"}}>
-      {/* Global nav */}
-      <div style={{position:"sticky",top:0,zIndex:100,background:T.bg+"f0",backdropFilter:"blur(16px)",borderBottom:"1px solid "+T.border}}>
-        <div style={{maxWidth:520,margin:"0 auto",padding:"0 16px",display:"flex",alignItems:"center",gap:8,height:54}}>
-          <div style={{fontSize:18,fontWeight:900,fontFamily:"Syne,sans-serif",background:"linear-gradient(135deg,#6366f1,#818cf8)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginRight:8,letterSpacing:-0.5}}>WaveIQ</div>
-          <div style={{display:"flex",background:T.card,borderRadius:12,padding:3,gap:2,border:"1px solid "+T.border}}>
-            {[["plan","🗺 Plan"],["conditions","📍 Now"]].map(([id,label])=>(
-              <button key={id} onClick={()=>setTab(id)} style={{padding:"6px 14px",borderRadius:9,border:"none",background:tab===id?"#6366f1":"transparent",color:tab===id?"white":T.sub,fontWeight:700,fontSize:12,cursor:"pointer",transition:"all .15s",boxShadow:tab===id?"0 2px 8px rgba(99,102,241,0.35)":"none",whiteSpace:"nowrap"}}>
-                {label}
-              </button>
-            ))}
-          </div>
+    <div style={{height:"100vh",display:"flex",flexDirection:"column",background:T.bg,color:T.text,fontFamily:"DM Sans,sans-serif",overflow:"hidden"}}>
+      {/* Nav */}
+      <div style={{height:48,flexShrink:0,background:T.card,borderBottom:"1px solid "+T.border,display:"flex",alignItems:"center",padding:"0 20px",gap:24,zIndex:100}}>
+        <div style={{fontSize:16,fontWeight:900,fontFamily:"Syne,sans-serif",color:T.text,letterSpacing:-0.5,marginRight:8}}>WaveIQ</div>
+        <div style={{display:"flex",gap:2}}>
+          {[["plan","Planner"],["conditions","Conditions"]].map(([id,label])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              style={{padding:"6px 16px",borderRadius:4,border:"none",background:tab===id?T.hi:"transparent",color:tab===id?T.text:T.sub,fontWeight:tab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:"DM Sans,sans-serif",transition:"all .15s",letterSpacing:0.2}}>
+              {label}
+            </button>
+          ))}
         </div>
+        <div style={{marginLeft:"auto",width:8,height:8,borderRadius:"50%",background:"#22c55e",boxShadow:"0 0 6px #22c55e88"}} title="APIs live"/>
       </div>
 
-      {/* Modules */}
-      {tab === "plan"       && <Planner   T={T} dark={dark}/>}
-      {tab === "conditions" && <Dashboard T={T} dark={dark}/>}
+      {/* Modules — fill remaining height */}
+      <div style={{flex:1,overflow:"hidden"}}>
+        {tab === "plan"       && <Planner   T={T} dark={dark}/>}
+        {tab === "conditions" && <Dashboard T={T} dark={dark}/>}
+      </div>
     </div>
   );
 }

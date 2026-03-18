@@ -1,94 +1,91 @@
 import { useState } from 'react';
-import { S, gradeScore, gradeLabel, gradeColor, gradeBg } from '../data/spots';
-import { SPORTS, MONTHS } from '../shared/theme';
+import { S, gradeScore, gradeLabel, gradeColor, gradeBg, topPicks } from '../data/spots';
+import { SPORTS, MONTHS, RC } from '../shared/theme';
 import WorldMap from './WorldMap';
 import Rankings from './Rankings';
 import MonthChart from './MonthChart';
 
+function Select({ label, value, onChange, options, T }) {
+  return (
+    <div style={{marginBottom:12}}>
+      <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:5,fontWeight:600}}>{label}</div>
+      <div style={{position:"relative"}}>
+        <select value={value} onChange={e=>onChange(e.target.value)}
+          style={{width:"100%",padding:"8px 28px 8px 10px",background:T.card,border:"1px solid "+T.border,color:T.text,borderRadius:5,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"DM Sans,sans-serif",appearance:"none",WebkitAppearance:"none",outline:"none"}}>
+          {options.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+        </select>
+        <div style={{position:"absolute",right:9,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",color:T.sub,fontSize:10}}>▾</div>
+      </div>
+    </div>
+  );
+}
+
 export default function Planner({ T, dark }) {
   const now = new Date();
-  const [sport,  setSport]  = useState("surf");
-  const [month,  setMonth]  = useState(now.getMonth());
+  const [sport,    setSport]    = useState("surf");
+  const [month,    setMonth]    = useState(now.getMonth());
   const [selected, setSelected] = useState(null);
 
-  const top = [...S].map(s=>({...s,score:gradeScore(s,sport,month)})).sort((a,b)=>b.score-a.score)[0];
-  const topGrade = gradeLabel(top.score);
-  const topColor = gradeColor(topGrade);
-  const topBg    = gradeBg(topGrade);
+  const picks = topPicks(sport, month, 5);
+  const sportOptions = SPORTS.map(s => [s, s==="sup"?"SUP":s.charAt(0).toUpperCase()+s.slice(1)]);
+  const monthOptions = MONTHS.map((m,i) => [String(i), m]);
 
   return (
-    <div style={{fontFamily:"DM Sans,sans-serif"}}>
-      {/* Hero */}
-      <div style={{position:"relative",overflow:"hidden",background:"linear-gradient(135deg,#4338ca 0%,#6366f1 50%,#818cf8 100%)",padding:"48px 24px 72px"}}>
-        <div style={{position:"absolute",top:-60,right:-60,width:260,height:260,borderRadius:"50%",background:"rgba(255,255,255,0.06)",pointerEvents:"none"}}/>
-        <div style={{position:"absolute",bottom:-80,left:-40,width:300,height:300,borderRadius:"50%",background:"rgba(255,255,255,0.04)",pointerEvents:"none"}}/>
-        <div style={{position:"relative",maxWidth:480,margin:"0 auto"}}>
-          <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.15)",backdropFilter:"blur(8px)",borderRadius:20,padding:"5px 12px",marginBottom:18}}>
-            <div style={{width:7,height:7,borderRadius:"50%",background:"#a5f3fc"}}/>
-            <span style={{fontSize:11,fontWeight:600,color:"rgba(255,255,255,0.9)",letterSpacing:1}}>VACATION PLANNER</span>
-          </div>
-          <div style={{fontSize:40,fontWeight:900,fontFamily:"Syne,sans-serif",color:"white",lineHeight:1.05,letterSpacing:-1.5,marginBottom:10}}>Find your<br/>perfect trip.</div>
-          <div style={{fontSize:14,color:"rgba(255,255,255,0.7)",marginBottom:28}}>Grade every spot by sport, month & season.</div>
-          {/* Sport pills */}
-          <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
-            {SPORTS.map(sp=>(
-              <button key={sp} onClick={()=>setSport(sp)} style={{flexShrink:0,padding:"7px 15px",borderRadius:20,border:"1.5px solid "+(sport===sp?"white":"rgba(255,255,255,0.3)"),background:sport===sp?"white":"transparent",color:sport===sp?"#6366f1":"rgba(255,255,255,0.85)",fontWeight:700,fontSize:12,cursor:"pointer",textTransform:"capitalize",transition:"all .15s"}}>
-                {sp==="sup"?"SUP":sp}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+    <div style={{display:"flex",height:"calc(100vh - 48px)",fontFamily:"DM Sans,sans-serif",overflow:"hidden"}}>
 
-      {/* Content floats over hero */}
-      <div style={{maxWidth:520,margin:"-28px auto 0",padding:"0 16px 40px",position:"relative",zIndex:2}}>
-        {/* Month selector */}
-        <div style={{background:T.card,borderRadius:20,padding:"14px 16px",boxShadow:T.shadow,marginBottom:12}}>
-          <div style={{fontSize:9,color:T.sub,letterSpacing:2.5,marginBottom:10,fontWeight:600}}>SELECT MONTH</div>
-          <div style={{display:"flex",gap:4,overflowX:"auto"}}>
-            {MONTHS.map((m,i)=>(
-              <button key={i} onClick={()=>setMonth(i)} style={{flexShrink:0,padding:"6px 10px",borderRadius:10,border:"none",background:month===i?"#6366f1":"transparent",color:month===i?"white":T.sub,fontWeight:700,fontSize:11,cursor:"pointer",transition:"all .15s",boxShadow:month===i?"0 2px 8px rgba(99,102,241,0.4)":"none"}}>
-                {m}
-              </button>
-            ))}
-          </div>
+      {/* Left sidebar */}
+      <div style={{width:280,flexShrink:0,borderRight:"1px solid "+T.border,overflowY:"auto",background:T.card,display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"16px 16px 0",flexShrink:0}}>
+          <div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:T.text,marginBottom:16,paddingBottom:12,borderBottom:"1px solid "+T.border}}>VACATION PLANNER</div>
+          <Select label="SPORT" value={sport} onChange={setSport} options={sportOptions} T={T}/>
+          <Select label="MONTH" value={String(month)} onChange={v=>setMonth(Number(v))} options={monthOptions} T={T}/>
         </div>
 
-        {/* Top pick banner */}
-        <div style={{background:`linear-gradient(135deg,${topColor}22,${topColor}11)`,border:`1.5px solid ${topColor}44`,borderRadius:20,padding:"16px 18px",marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
-          <div style={{background:topBg,borderRadius:14,padding:"8px 14px",flexShrink:0}}>
-            <div style={{fontSize:26,fontWeight:900,fontFamily:"Syne,sans-serif",color:topColor,letterSpacing:-1}}>{topGrade}</div>
-          </div>
-          <div>
-            <div style={{fontSize:9,color:T.sub,letterSpacing:2,fontWeight:600,marginBottom:3}}>TOP PICK · {MONTHS[month].toUpperCase()}</div>
-            <div style={{fontSize:17,fontWeight:800,fontFamily:"Syne,sans-serif",color:T.text,letterSpacing:-0.3}}>{top.name}, {top.country}</div>
-            <div style={{fontSize:11,color:T.sub,marginTop:2}}>Best spot for {sport} this month</div>
-          </div>
-        </div>
-
-        {/* World map */}
-        <div style={{marginBottom:12}}>
-          <WorldMap spots={S} sport={sport} month={month} selectedId={selected?.id} onSelect={setSelected} dark={dark}/>
+        {/* Top 5 */}
+        <div style={{padding:"0 16px",flexShrink:0}}>
+          <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:8,fontWeight:600,paddingTop:16,borderTop:"1px solid "+T.border}}>TOP 5 PICKS · {MONTHS[month].toUpperCase()}</div>
+          {picks.map((s,i)=>{
+            const col = gradeColor(s.grade);
+            const rc  = RC[s.region]||"#6366f1";
+            const sel = selected?.id===s.id;
+            return (
+              <div key={s.id} onClick={()=>setSelected(sel?null:s)}
+                style={{display:"flex",alignItems:"center",gap:8,padding:"8px 8px",borderRadius:4,marginBottom:2,cursor:"pointer",background:sel?T.hi:"transparent",border:`1px solid ${sel?T.border:"transparent"}`,transition:"all .12s"}}>
+                <div style={{fontSize:11,fontWeight:700,color:T.sub,width:14,fontFamily:"DM Mono,monospace",flexShrink:0}}>{i+1}</div>
+                <div style={{width:6,height:6,borderRadius:"50%",background:rc,flexShrink:0}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:13,color:T.text,letterSpacing:-0.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.name}</div>
+                  <div style={{fontSize:10,color:T.sub}}>{s.country}</div>
+                </div>
+                <div style={{fontSize:14,fontWeight:900,fontFamily:"DM Mono,monospace",color:col,background:col+"18",padding:"2px 8px",borderRadius:3}}>{s.grade}</div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Selected spot detail */}
         {selected && (
-          <div className="fade-up" style={{background:T.card,borderRadius:20,padding:"20px",boxShadow:T.shadow,marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+          <div style={{padding:"16px",borderTop:"1px solid "+T.border,flexShrink:0,marginTop:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
               <div>
-                <div style={{fontSize:9,color:T.sub,letterSpacing:2,fontWeight:600,marginBottom:4}}>{selected.country.toUpperCase()} · {selected.region.toUpperCase()}</div>
-                <div style={{fontSize:22,fontWeight:900,fontFamily:"Syne,sans-serif",color:T.text,letterSpacing:-0.5}}>{selected.name}</div>
+                <div style={{fontSize:13,fontWeight:800,color:T.text}}>{selected.name}</div>
+                <div style={{fontSize:10,color:T.sub}}>{selected.country} · {selected.region}</div>
               </div>
-              <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",color:T.sub,fontSize:18,cursor:"pointer",padding:4}}>✕</button>
+              <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",color:T.sub,cursor:"pointer",fontSize:14,padding:2}}>✕</button>
             </div>
             <MonthChart spot={selected} sport={sport} currentMonth={month} onMonthSelect={setMonth} T={T}/>
           </div>
         )}
 
         {/* Rankings */}
-        <div style={{background:T.card,borderRadius:20,padding:"20px",boxShadow:T.shadow}}>
-          <Rankings spots={S} sport={sport} month={month} selectedId={selected?.id} onSelect={setSelected} T={T}/>
+        <div style={{padding:"16px",borderTop:"1px solid "+T.border,flex:1}}>
+          <Rankings spots={S} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)} T={T}/>
         </div>
+      </div>
+
+      {/* Map — fills remaining space */}
+      <div style={{flex:1,overflow:"hidden"}}>
+        <WorldMap spots={S} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)} dark={dark}/>
       </div>
     </div>
   );

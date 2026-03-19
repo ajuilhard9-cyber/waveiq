@@ -4,9 +4,9 @@ import { gradeScore, gradeLabel, gradeColor } from '../data/spots';
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 export default function WorldMap({ spots, sport, month, selectedId, onSelect, dark }) {
-  const bg   = dark ? "#0b1120" : "#dce4f0";
-  const land = dark ? "#162035" : "#c8d4e8";
-  const bord = dark ? "#1e2d45" : "#b8c6dc";
+  const bg   = dark ? "#0b1120" : "#c2dff5";
+  const land = dark ? "#162035" : "#d4e8cc";
+  const bord = dark ? "#1e2d45" : "#b0ccb8";
 
   return (
     <div style={{width:"100%",height:"100%",background:bg,position:"relative"}}>

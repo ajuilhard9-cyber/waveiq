@@ -28,7 +28,6 @@ export default function Planner({ T, dark, onGoToConditions }) {
 
   const picks = topPicks(sport, month, 5);
   const sportOptions = SPORTS.map(s => [s, s==="sup"?"SUP":s.charAt(0).toUpperCase()+s.slice(1)]);
-  const monthOptions = MONTHS.map((m,i) => [String(i), m]);
 
   return (
     <div style={{display:"flex",height:"calc(100vh - 48px)",fontFamily:"DM Sans,sans-serif",overflow:"hidden"}}>
@@ -38,12 +37,22 @@ export default function Planner({ T, dark, onGoToConditions }) {
         <div style={{padding:"16px 16px 0",flexShrink:0}}>
           <div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:T.text,marginBottom:16,paddingBottom:12,borderBottom:"1px solid "+T.border}}>VACATION PLANNER</div>
           <Select label="SPORT" value={sport} onChange={setSport} options={sportOptions} T={T}/>
-          <Select label="MONTH" value={String(month)} onChange={v=>setMonth(Number(v))} options={monthOptions} T={T}/>
+          <div style={{marginBottom:4}}>
+            <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:4,fontWeight:600}}>MONTH</div>
+            {MONTHS.map((m,i)=>(
+              <div key={i} onClick={()=>setMonth(i)}
+                style={{padding:"5px 10px",cursor:"pointer",borderLeft:"2px solid "+(i===month?"#0ea5e9":"transparent"),background:i===month?"#e0f2fe":"transparent",color:i===month?"#0ea5e9":T.text,fontWeight:i===month?700:400,fontSize:12,transition:"all .1s",fontFamily:"DM Sans,sans-serif",borderRadius:"0 3px 3px 0"}}
+                onMouseEnter={e=>{if(i!==month)e.currentTarget.style.background=T.hi;}}
+                onMouseLeave={e=>{if(i!==month)e.currentTarget.style.background="transparent";}}>
+                {m}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Top 5 */}
         <div style={{padding:"0 16px",flexShrink:0}}>
-          <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:8,fontWeight:600,paddingTop:16,borderTop:"1px solid "+T.border}}>TOP 5 PICKS · {MONTHS[month].toUpperCase()}</div>
+          <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:8,fontWeight:600,paddingTop:12,borderTop:"1px solid "+T.border}}>TOP 5 PICKS · {MONTHS[month].toUpperCase()}</div>
           {picks.map((s,i)=>{
             const col = gradeColor(s.grade);
             const rc  = RC[s.region]||"#6366f1";
@@ -72,9 +81,9 @@ export default function Planner({ T, dark, onGoToConditions }) {
                 <div style={{fontSize:10,color:T.sub}}>{selected.country} · {selected.region}</div>
               </div>
               <div style={{display:"flex",gap:6}}>
-              {onGoToConditions&&<button onClick={()=>onGoToConditions(selected)} style={{padding:"4px 10px",borderRadius:3,border:"1px solid #6366f1",background:"#6366f1",color:"white",fontSize:10,fontWeight:700,cursor:"pointer",letterSpacing:0.5}}>CONDITIONS →</button>}
-              <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",color:T.sub,cursor:"pointer",fontSize:14,padding:2}}>✕</button>
-            </div>
+                {onGoToConditions&&<button onClick={()=>onGoToConditions(selected)} style={{padding:"4px 10px",borderRadius:3,border:"1px solid #0ea5e9",background:"#0ea5e9",color:"white",fontSize:10,fontWeight:700,cursor:"pointer",letterSpacing:0.5}}>CONDITIONS →</button>}
+                <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",color:T.sub,cursor:"pointer",fontSize:14,padding:2}}>✕</button>
+              </div>
             </div>
             <MonthChart spot={selected} sport={sport} currentMonth={month} onMonthSelect={setMonth} T={T}/>
           </div>

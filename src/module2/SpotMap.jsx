@@ -3,17 +3,19 @@ import { S } from '../data/spots';
 import { RC } from '../shared/theme';
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
-const REGION_SCALE = 1100;
+// ~18000 gives ~50 km radius view in a 300-400px container
+const REGION_SCALE = 18000;
 
-export default function SpotMap({ spot, windDir, dark, onSelectNearby }) {
-  const sea  = dark ? "#0b1120" : "#bfe8f8";
-  const land = dark ? "#162035" : "#d4e8cc";
-  const bord = dark ? "#1e2d45" : "#a8ccc0";
+export default function SpotMap({ spot, windDir, onSelectNearby }) {
+  const sea  = "#bfe8f8";
+  const land = "#d4e8cc";
+  const bord = "#a8ccc0";
 
+  // filter spots within ~1.5 degrees (~165 km) so only genuinely local spots appear
   const nearby = S.filter(s => s.id !== spot.id).map(s => {
     const dlat = s.lat - spot.lat, dlng = s.lng - spot.lng;
     return {...s, dist: Math.sqrt(dlat*dlat + dlng*dlng)};
-  }).filter(s => s.dist < 15).sort((a,b) => a.dist - b.dist).slice(0, 6);
+  }).filter(s => s.dist < 1.5).sort((a,b) => a.dist - b.dist).slice(0, 6);
 
   return (
     <div style={{width:"100%",height:"100%",background:sea,position:"relative"}}>
@@ -36,10 +38,10 @@ export default function SpotMap({ spot, windDir, dark, onSelectNearby }) {
 
         {nearby.map(s => (
           <Marker key={s.id} coordinates={[s.lng, s.lat]} onClick={() => onSelectNearby?.(s)}>
-            <circle r={5} fill={RC[s.region]||"#0ea5e9"} stroke={dark?"#0b1120":"white"} strokeWidth={1.5}
+            <circle r={5} fill={RC[s.region]||"#0ea5e9"} stroke="white" strokeWidth={1.5}
               style={{cursor:onSelectNearby?"pointer":"default",opacity:0.8}}/>
             <text textAnchor="middle" y={-9}
-              style={{fontSize:8,fill:dark?"#94a3b8":"#475569",fontFamily:"DM Sans,sans-serif",pointerEvents:"none"}}>
+              style={{fontSize:8,fill:"#475569",fontFamily:"DM Sans,sans-serif",pointerEvents:"none"}}>
               {s.name}
             </text>
           </Marker>
@@ -62,15 +64,15 @@ export default function SpotMap({ spot, windDir, dark, onSelectNearby }) {
       </ComposableMap>
 
       {/* Spot label overlay */}
-      <div style={{position:"absolute",top:14,left:14,background:dark?"rgba(10,15,28,0.88)":"rgba(255,255,255,0.92)",backdropFilter:"blur(8px)",padding:"8px 12px",borderRadius:5,border:`1px solid ${bord}`}}>
-        <div style={{fontSize:13,fontWeight:800,color:dark?"#eef2ff":"#0f172a",fontFamily:"Syne,sans-serif",letterSpacing:-0.3}}>{spot.name}</div>
-        <div style={{fontSize:10,color:dark?"#64748b":"#94a3b8"}}>{spot.country} · {spot.region}</div>
+      <div style={{position:"absolute",top:14,left:14,background:"rgba(255,255,255,0.92)",backdropFilter:"blur(8px)",padding:"8px 12px",borderRadius:5,border:`1px solid ${bord}`}}>
+        <div style={{fontSize:13,fontWeight:800,color:"#0f172a",fontFamily:"Syne,sans-serif",letterSpacing:-0.3}}>{spot.name}</div>
+        <div style={{fontSize:10,color:"#94a3b8"}}>{spot.country} · {spot.region}</div>
         {windDir!=null&&<div style={{fontSize:9,color:"#0ea5e9",marginTop:3,fontWeight:600,fontFamily:"DM Mono,monospace"}}>WIND {Math.round(windDir)}°</div>}
       </div>
 
       {nearby.length>0&&(
-        <div style={{position:"absolute",bottom:12,right:12,background:dark?"rgba(10,15,28,0.75)":"rgba(255,255,255,0.85)",backdropFilter:"blur(6px)",padding:"5px 9px",borderRadius:4,border:`1px solid ${bord}`}}>
-          <div style={{fontSize:9,color:dark?"#64748b":"#94a3b8",fontWeight:600}}>{nearby.length} nearby spot{nearby.length>1?"s":""}</div>
+        <div style={{position:"absolute",bottom:12,right:12,background:"rgba(255,255,255,0.85)",backdropFilter:"blur(6px)",padding:"5px 9px",borderRadius:4,border:`1px solid ${bord}`}}>
+          <div style={{fontSize:9,color:"#94a3b8",fontWeight:600}}>{nearby.length} nearby spot{nearby.length>1?"s":""}</div>
         </div>
       )}
     </div>

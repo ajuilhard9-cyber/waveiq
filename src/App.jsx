@@ -1,21 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { makeTheme } from './shared/theme';
 import Planner from './module1/Planner';
 import Dashboard from './module2/Dashboard';
 
 export default function App() {
-  const [dark,      setDark]      = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
   const [tab,       setTab]       = useState("plan");
   const [crossSpot, setCrossSpot] = useState(null); // spot passed from Planner → Dashboard
 
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const fn = e => setDark(e.matches);
-    mq.addEventListener("change", fn);
-    return () => mq.removeEventListener("change", fn);
-  }, []);
-
-  const T = makeTheme(dark);
+  const T = makeTheme(false);
 
   function goToConditions(spot) {
     setCrossSpot(spot);
@@ -47,8 +39,8 @@ export default function App() {
 
       {/* Modules */}
       <div style={{flex:1,overflow:"hidden"}}>
-        {tab==="plan"       && <Planner   T={T} dark={dark} onGoToConditions={goToConditions}/>}
-        {tab==="conditions" && <Dashboard T={T} dark={dark} initialSpot={crossSpot} onClearInitial={clearCrossSpot}/>}
+        {tab==="plan"       && <Planner   T={T} onGoToConditions={goToConditions}/>}
+        {tab==="conditions" && <Dashboard T={T} initialSpot={crossSpot} onClearInitial={clearCrossSpot}/>}
       </div>
     </div>
   );

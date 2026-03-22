@@ -20,7 +20,7 @@ function Select({ label, value, onChange, options, T }) {
   );
 }
 
-export default function Planner({ T, dark, onGoToConditions }) {
+export default function Planner({ T, onGoToConditions }) {
   const now = new Date();
   const [sport,    setSport]    = useState("surf");
   const [month,    setMonth]    = useState(now.getMonth());
@@ -37,17 +37,6 @@ export default function Planner({ T, dark, onGoToConditions }) {
         <div style={{padding:"16px 16px 0",flexShrink:0}}>
           <div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:T.text,marginBottom:16,paddingBottom:12,borderBottom:"1px solid "+T.border}}>VACATION PLANNER</div>
           <Select label="SPORT" value={sport} onChange={setSport} options={sportOptions} T={T}/>
-          <div style={{marginBottom:4}}>
-            <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:4,fontWeight:600}}>MONTH</div>
-            {MONTHS.map((m,i)=>(
-              <div key={i} onClick={()=>setMonth(i)}
-                style={{padding:"5px 10px",cursor:"pointer",borderLeft:"2px solid "+(i===month?"#0ea5e9":"transparent"),background:i===month?"#e0f2fe":"transparent",color:i===month?"#0ea5e9":T.text,fontWeight:i===month?700:400,fontSize:12,transition:"all .1s",fontFamily:"DM Sans,sans-serif",borderRadius:"0 3px 3px 0"}}
-                onMouseEnter={e=>{if(i!==month)e.currentTarget.style.background=T.hi;}}
-                onMouseLeave={e=>{if(i!==month)e.currentTarget.style.background="transparent";}}>
-                {m}
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Top 5 */}
@@ -95,9 +84,22 @@ export default function Planner({ T, dark, onGoToConditions }) {
         </div>
       </div>
 
-      {/* Map — fills remaining space */}
-      <div style={{flex:1,overflow:"hidden"}}>
-        <WorldMap spots={S} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)} dark={dark}/>
+      {/* Map + month strip */}
+      <div style={{flex:1,overflow:"hidden",position:"relative",display:"flex",flexDirection:"column"}}>
+        {/* Horizontal month pills */}
+        <div style={{flexShrink:0,background:T.card,borderBottom:"1px solid "+T.border,display:"flex",alignItems:"center",gap:4,padding:"8px 16px",overflowX:"auto"}}>
+          <span style={{fontSize:9,fontWeight:700,letterSpacing:2,color:T.sub,marginRight:8,whiteSpace:"nowrap"}}>MONTH</span>
+          {MONTHS.map((m,i)=>(
+            <button key={i} onClick={()=>setMonth(i)}
+              style={{padding:"4px 12px",borderRadius:20,border:"1px solid "+(i===month?"#0ea5e9":T.border),background:i===month?"#0ea5e9":"transparent",color:i===month?"#fff":T.sub,fontSize:12,fontWeight:i===month?700:500,cursor:"pointer",flexShrink:0,transition:"all .1s",fontFamily:"DM Sans,sans-serif"}}>
+              {m}
+            </button>
+          ))}
+        </div>
+        {/* Map */}
+        <div style={{flex:1,overflow:"hidden"}}>
+          <WorldMap spots={S} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)} dark={false}/>
+        </div>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import { RC } from '../shared/theme';
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json";
 // ~18000 gives ~50 km radius view in a 300-400px container
-const REGION_SCALE = 18000;
+const REGION_SCALE = 90000;
 
 export default function SpotMap({ spot, windDir, swellDir, onSelectNearby }) {
   const sea  = "#bfe8f8";

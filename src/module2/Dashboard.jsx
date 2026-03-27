@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { S } from '../data/spots';
 import { getWeather, getMarine } from '../utils/api';
 import { nearest, searchSpots } from '../utils/geo';
@@ -39,18 +39,66 @@ function degToCompass(d) { const dirs=["N","NE","E","SE","S","SW","W","NW"]; ret
 function windColor(v) { return v>25?"#ef4444":v>15?"#f59e0b":"#22c55e"; }
 function statusDot(st) { return st==="GO"?"#22c55e":st==="CAUTION"?"#f59e0b":"#ef4444"; }
 
+function getDaylightSections(sunriseISO, sunsetISO) {
+  const sr = new Date(sunriseISO);
+  const ss = new Date(sunsetISO);
+  const daylight = (ss - sr) / 3600000;
+  const edgeDur = daylight < 8 ? Math.max(0.75, daylight * 0.15) : 2;
+  const midStart = sr.getTime() + edgeDur * 3600000;
+  const midEnd = ss.getTime() - edgeDur * 3600000;
+  const midMid = (midStart + midEnd) / 2;
+  if (daylight < 6) {
+    return [
+      { id:"dawn", label:"Dawn", start:sr, end:new Date(midStart) },
+      { id:"midday", label:"Midday", start:new Date(midStart), end:new Date(midEnd) },
+      { id:"dusk", label:"Dusk", start:new Date(midEnd), end:ss },
+    ];
+  }
+  return [
+    { id:"dawn", label:"Dawn", start:sr, end:new Date(midStart) },
+    { id:"morning", label:"Morning", start:new Date(midStart), end:new Date(midMid) },
+    { id:"afternoon", label:"Afternoon", start:new Date(midMid), end:new Date(midEnd) },
+    { id:"dusk", label:"Dusk", start:new Date(midEnd), end:ss },
+  ];
+}
+
+const SECTION_ICONS = {
+  dawn: <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><line x1="2" y1="17" x2="22" y2="17" stroke="#f97316" strokeWidth="1.5" strokeLinecap="round"/><path d="M 6 17 A 6 6 0 0 1 18 17" fill="#fb923c" opacity="0.9"/><line x1="12" y1="9" x2="12" y2="6" stroke="#f97316" strokeWidth="1.5" strokeLinecap="round"/><line x1="16.2" y1="11" x2="18.4" y2="8.8" stroke="#f97316" strokeWidth="1.5" strokeLinecap="round"/><line x1="7.8" y1="11" x2="5.6" y2="8.8" stroke="#f97316" strokeWidth="1.5" strokeLinecap="round"/></svg>,
+  morning: <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="10" r="4" fill="#f59e0b"/><line x1="12" y1="4" x2="12" y2="2.5" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round"/><line x1="17.2" y1="5.8" x2="18.4" y2="4.6" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round"/><line x1="6.8" y1="5.8" x2="5.6" y2="4.6" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round"/><line x1="19" y1="10" x2="20.5" y2="10" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round"/><line x1="5" y1="10" x2="3.5" y2="10" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round"/><line x1="2" y1="19" x2="22" y2="19" stroke="#94a3b8" strokeWidth="1" strokeLinecap="round" opacity="0.3"/></svg>,
+  afternoon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4.5" fill="#eab308"/><line x1="12" y1="1.5" x2="12" y2="3" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="17.5" y1="3.5" x2="16.5" y2="4.5" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="6.5" y1="3.5" x2="7.5" y2="4.5" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="20" y1="8" x2="21.5" y2="8" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="4" y1="8" x2="2.5" y2="8" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="17.5" y1="12.5" x2="16.5" y2="11.5" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="6.5" y1="12.5" x2="7.5" y2="11.5" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="2" y1="19" x2="22" y2="19" stroke="#94a3b8" strokeWidth="1" strokeLinecap="round" opacity="0.3"/></svg>,
+  dusk: <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><line x1="2" y1="17" x2="22" y2="17" stroke="#ea580c" strokeWidth="1.5" strokeLinecap="round"/><path d="M 6 17 A 6 6 0 0 1 18 17" fill="#f97316" opacity="0.8"/><line x1="12" y1="9" x2="12" y2="6" stroke="#ea580c" strokeWidth="1.5" strokeLinecap="round"/><line x1="16.2" y1="11" x2="18.4" y2="8.8" stroke="#ea580c" strokeWidth="1.5" strokeLinecap="round"/><line x1="7.8" y1="11" x2="5.6" y2="8.8" stroke="#ea580c" strokeWidth="1.5" strokeLinecap="round"/></svg>,
+  midday: <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4.5" fill="#eab308"/><line x1="12" y1="1.5" x2="12" y2="3" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="17.5" y1="3.5" x2="16.5" y2="4.5" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="6.5" y1="3.5" x2="7.5" y2="4.5" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="20" y1="8" x2="21.5" y2="8" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="4" y1="8" x2="2.5" y2="8" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="17.5" y1="12.5" x2="16.5" y2="11.5" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="6.5" y1="12.5" x2="7.5" y2="11.5" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round"/><line x1="2" y1="19" x2="22" y2="19" stroke="#94a3b8" strokeWidth="1" strokeLinecap="round" opacity="0.3"/></svg>,
+};
+
+const SECTION_STYLES = {
+  dawn:      { background:"rgba(251,146,60,0.08)", borderLeft:"3px solid #f97316", color:"#f97316" },
+  morning:   { background:"rgba(245,158,11,0.08)", borderLeft:"3px solid #f59e0b", color:"#f59e0b" },
+  afternoon: { background:"rgba(234,179,8,0.10)",  borderLeft:"3px solid #eab308", color:"#eab308" },
+  dusk:      { background:"rgba(234,88,12,0.08)",  borderLeft:"3px solid #ea580c", color:"#ea580c" },
+  midday:    { background:"rgba(234,179,8,0.10)",  borderLeft:"3px solid #eab308", color:"#eab308" },
+};
+
+function fmtHM(d) { return d.getHours().toString().padStart(2,"0")+":"+d.getMinutes().toString().padStart(2,"0"); }
+
+function NightRow({ expanded, onToggle, sunriseISO, label }) {
+  return (
+    <div onClick={onToggle} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#0f172a",color:"#64748b",fontSize:11,cursor:"pointer",borderBottom:"1px solid #1e293b"}}>
+      <svg width="14" height="14" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" fill="#64748b"/></svg>
+      <span style={{fontFamily:"DM Mono,monospace"}}>NIGHT</span>
+      <span style={{marginLeft:"auto",color:"#0ea5e9"}}>{expanded?"▼":"▶"} {label} {sunriseISO ? fmtHM(new Date(sunriseISO)) : ""}</span>
+    </div>
+  );
+}
+
 function HourlyTable({ wd, wm, sport, level, T }) {
+  const [nightExp, setNightExp] = useState({ pre:false, post:false });
   if (!wd?.hourly?.time) return null;
   const sunriseISO = wd.daily?.sunrise?.[0], sunsetISO = wd.daily?.sunset?.[0];
   if (!sunriseISO || !sunsetISO) return null;
-  const srH = new Date(sunriseISO).getHours(), ssH = new Date(sunsetISO).getHours();
-  const srM = new Date(sunriseISO).getMinutes(), ssM = new Date(sunsetISO).getMinutes();
-  const srStr = srH.toString().padStart(2,"0")+":"+srM.toString().padStart(2,"0");
-  const ssStr = ssH.toString().padStart(2,"0")+":"+ssM.toString().padStart(2,"0");
 
-  // Build rows for next 24 hours within daylight
-  const now = new Date();
-  const rows = [];
+  const sr = new Date(sunriseISO), ss = new Date(sunsetISO);
+  const sections = getDaylightSections(sunriseISO, sunsetISO);
+
   const hTimes = wd.hourly.time;
   const hWind = wd.hourly.wind_speed_10m || [];
   const hGust = wd.hourly.wind_gusts_10m || [];
@@ -59,31 +107,47 @@ function HourlyTable({ wd, wm, sport, level, T }) {
   const mWave = wm?.hourly?.wave_height || [];
   const mPer = wm?.hourly?.wave_period || [];
 
-  for (let i = 0; i < Math.min(hTimes.length, 24); i++) {
-    const t = new Date(hTimes[i]);
-    if (t < now && t.getHours() !== now.getHours()) continue;
-    const h = t.getHours();
-    const isNight = h < srH || h > ssH;
-    if (isNight) continue;
-    // find matching marine index
-    const tISO = hTimes[i];
-    const mi = mTimes.indexOf(tISO);
-    const wv = mi >= 0 ? (mWave[mi] || 0) : 0;
-    const per = mi >= 0 ? (mPer[mi] || 0) : 0;
-    const w = Math.round(hWind[i] || 0);
-    const g = Math.round(hGust[i] || 0);
-    const dir = hDir[i] || 0;
-    const sf = safety(w, wv, sport, level, false);
-    rows.push({ time: h.toString().padStart(2,"0")+":00", w, g, dir, wv, per: Math.round(per), status: sf.status, isFirst: rows.length === 0 });
+  function buildRows(startT, endT, isNight) {
+    const rows = [];
+    for (let i = 0; i < hTimes.length; i++) {
+      const t = new Date(hTimes[i]);
+      if (t < startT || t >= endT) continue;
+      const mi = mTimes.indexOf(hTimes[i]);
+      const wv = mi >= 0 ? (mWave[mi] || 0) : 0;
+      const per = mi >= 0 ? (mPer[mi] || 0) : 0;
+      const w = Math.round(hWind[i] || 0);
+      const g = Math.round(hGust[i] || 0);
+      const dir = hDir[i] || 0;
+      const sf = safety(w, wv, sport, level, isNight);
+      rows.push({ time:t.getHours().toString().padStart(2,"0")+":00", w, g, dir, wv, per:Math.round(per), status:sf.status });
+    }
+    return rows;
   }
-  if (!rows.length) return null;
+
+  // Night rows: pre-sunrise (midnight to sunrise) and post-sunset (sunset to midnight)
+  const dayStart = new Date(sr); dayStart.setHours(0,0,0,0);
+  const dayEnd = new Date(ss); dayEnd.setHours(23,59,59,999);
+  const preNightRows = buildRows(dayStart, sr, true);
+  const postNightRows = buildRows(ss, dayEnd, true);
 
   const thStyle = {fontSize:9,color:T.sub,fontWeight:600,letterSpacing:1,padding:"4px 6px",textAlign:"left",borderBottom:"2px solid "+T.border};
-  const tdStyle = (i) => ({fontSize:11,fontFamily:"DM Mono,monospace",padding:"4px 6px",borderBottom:"1px solid #e2e8f0",height:28,background:i%2===0?"#f8fafc":"white"});
+  const tdStyle = (i, isNight) => ({fontSize:11,fontFamily:"DM Mono,monospace",padding:"4px 6px",borderBottom:"1px solid "+(isNight?"#1e293b":"#e2e8f0"),height:28,background:isNight?"#0f172a":i%2===0?"#f8fafc":"white",color:isNight?"#475569":undefined});
+
+  const renderRows = (rows, isNight) => rows.map((r,i) => (
+    <tr key={r.time+"-"+(isNight?"n":"d")}>
+      <td style={{...tdStyle(i,isNight),fontWeight:600,color:isNight?"#475569":T.text}}>{r.time}</td>
+      <td style={{...tdStyle(i,isNight),color:isNight?"#475569":windColor(r.w),fontWeight:700}}>{r.w}<span style={{fontSize:9,color:isNight?"#334155":T.sub}}> kts</span></td>
+      <td style={{...tdStyle(i,isNight),color:isNight?"#475569":T.sub}}>{degToCompass(r.dir)}</td>
+      <td style={{...tdStyle(i,isNight),color:isNight?"#475569":windColor(r.g),fontWeight:700}}>{r.g}<span style={{fontSize:9,color:isNight?"#334155":T.sub}}> kts</span></td>
+      <td style={tdStyle(i,isNight)}>{r.wv.toFixed(1)}<span style={{fontSize:9,color:isNight?"#334155":T.sub}}> m</span></td>
+      <td style={tdStyle(i,isNight)}>{r.per}<span style={{fontSize:9,color:isNight?"#334155":T.sub}}> s</span></td>
+      <td style={tdStyle(i,isNight)}><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:isNight?"#ef4444":statusDot(r.status)}}></span></td>
+    </tr>
+  ));
 
   return (
     <div style={{marginTop:20}}>
-      <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:8,fontWeight:600}}>HOURLY FORECAST (DAYLIGHT)</div>
+      <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:8,fontWeight:600}}>HOURLY FORECAST</div>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
         <thead>
           <tr>
@@ -91,19 +155,44 @@ function HourlyTable({ wd, wm, sport, level, T }) {
           </tr>
         </thead>
         <tbody>
-          <tr><td colSpan={7} style={{fontSize:10,color:"#0ea5e9",fontWeight:600,padding:"4px 6px",background:"#f0f9ff"}}>↑ Sunrise {srStr}</td></tr>
-          {rows.map((r,i) => (
-            <tr key={r.time}>
-              <td style={{...tdStyle(i),fontWeight:600,color:T.text}}>{r.time}</td>
-              <td style={{...tdStyle(i),color:windColor(r.w),fontWeight:700}}>{r.w}<span style={{fontSize:9,color:T.sub}}> kts</span></td>
-              <td style={{...tdStyle(i),color:T.sub}}>{degToCompass(r.dir)}</td>
-              <td style={{...tdStyle(i),color:windColor(r.g),fontWeight:700}}>{r.g}<span style={{fontSize:9,color:T.sub}}> kts</span></td>
-              <td style={tdStyle(i)}>{r.wv.toFixed(1)}<span style={{fontSize:9,color:T.sub}}> m</span></td>
-              <td style={tdStyle(i)}>{r.per}<span style={{fontSize:9,color:T.sub}}> s</span></td>
-              <td style={tdStyle(i)}><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:statusDot(r.status)}}></span></td>
-            </tr>
-          ))}
-          <tr><td colSpan={7} style={{fontSize:10,color:"#f97316",fontWeight:600,padding:"4px 6px",background:"#fff7ed"}}>↓ Sunset {ssStr}</td></tr>
+          {/* Pre-sunrise night */}
+          {preNightRows.length > 0 && (
+            <>
+              <tr><td colSpan={7} style={{padding:0}}>
+                <NightRow expanded={nightExp.pre} onToggle={()=>setNightExp(p=>({...p,pre:!p.pre}))} sunriseISO={sunriseISO} label="Next sunrise"/>
+              </td></tr>
+              {nightExp.pre && renderRows(preNightRows, true)}
+            </>
+          )}
+
+          {/* Daylight sections */}
+          {sections.map(sec => {
+            const sRows = buildRows(sec.start, sec.end, false);
+            if (!sRows.length) return null;
+            const st = SECTION_STYLES[sec.id];
+            return (
+              <React.Fragment key={sec.id}>
+                <tr><td colSpan={7} style={{padding:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 12px",fontSize:12,fontWeight:700,color:st.color,background:st.background,borderLeft:st.borderLeft}}>
+                    {SECTION_ICONS[sec.id]}
+                    <span>{sec.label}</span>
+                    <span style={{marginLeft:"auto",fontSize:10,fontFamily:"DM Mono,monospace",color:"#94a3b8"}}>{fmtHM(sec.start)} – {fmtHM(sec.end)}</span>
+                  </div>
+                </td></tr>
+                {renderRows(sRows, false)}
+              </React.Fragment>
+            );
+          })}
+
+          {/* Post-sunset night */}
+          {postNightRows.length > 0 && (
+            <>
+              <tr><td colSpan={7} style={{padding:0}}>
+                <NightRow expanded={nightExp.post} onToggle={()=>setNightExp(p=>({...p,post:!p.post}))} sunriseISO={sunriseISO} label="Next sunrise"/>
+              </td></tr>
+              {nightExp.post && renderRows(postNightRows, true)}
+            </>
+          )}
         </tbody>
       </table>
     </div>

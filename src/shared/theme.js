@@ -1,15 +1,15 @@
-export function makeTheme(dark) {
+export function makeTheme() {
   return {
-    bg:          dark ? "#080c14"  : "#f0f5fa",
-    card:        dark ? "#0f1623"  : "#ffffff",
-    hi:          dark ? "#0c1d30"  : "#e0f2fe",
-    border:      dark ? "#1a2235"  : "#e2e8f0",
-    line:        dark ? "#1e2a3d"  : "#cbd5e1",
-    text:        dark ? "#eef2ff"  : "#0f172a",
-    sub:         dark ? "#4a5568"  : "#64748b",
+    bg:          "#f8fafc",
+    card:        "#ffffff",
+    hi:          "#f0f9ff",
+    border:      "#e2e8f0",
+    line:        "#e2e8f0",
+    text:        "#0f172a",
+    sub:         "#64748b",
     accent:      "#0ea5e9",
-    shadow:      dark ? "0 2px 12px rgba(0,0,0,0.45)" : "0 2px 8px rgba(0,0,0,0.06)",
-    shadowHover: dark ? "0 12px 32px rgba(0,0,0,0.6)" : "0 8px 24px rgba(14,165,233,0.15)",
+    shadow:      "0 1px 3px rgba(0,0,0,0.06)",
+    shadowHover: "0 4px 16px rgba(0,0,0,0.10)",
   };
 }
 

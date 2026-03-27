@@ -87,11 +87,10 @@ export default function Planner({ T, onGoToConditions }) {
       {/* Map + month strip */}
       <div style={{flex:1,overflow:"hidden",position:"relative",display:"flex",flexDirection:"column"}}>
         {/* Horizontal month pills */}
-        <div style={{flexShrink:0,background:T.card,borderBottom:"1px solid "+T.border,display:"flex",alignItems:"center",gap:4,padding:"8px 16px",overflowX:"auto"}}>
-          <span style={{fontSize:9,fontWeight:700,letterSpacing:2,color:T.sub,marginRight:8,whiteSpace:"nowrap"}}>MONTH</span>
+        <div style={{flexShrink:0,background:"#ffffff",borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",gap:6,padding:"8px 16px",flexWrap:"wrap"}}>
           {MONTHS.map((m,i)=>(
             <button key={i} onClick={()=>setMonth(i)}
-              style={{padding:"4px 12px",borderRadius:20,border:"1px solid "+(i===month?"#0ea5e9":T.border),background:i===month?"#0ea5e9":"transparent",color:i===month?"#fff":T.sub,fontSize:12,fontWeight:i===month?700:500,cursor:"pointer",flexShrink:0,transition:"all .1s",fontFamily:"DM Sans,sans-serif"}}>
+              style={{padding:"4px 10px",borderRadius:20,border:"1px solid "+(i===month?"#0ea5e9":"#e2e8f0"),background:i===month?"#0ea5e9":"#ffffff",color:i===month?"#fff":"#64748b",fontSize:11,fontWeight:i===month?700:500,cursor:"pointer",fontFamily:"DM Sans,sans-serif",transition:"all .1s"}}>
               {m}
             </button>
           ))}

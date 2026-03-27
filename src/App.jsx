@@ -7,7 +7,7 @@ export default function App() {
   const [tab,       setTab]       = useState("plan");
   const [crossSpot, setCrossSpot] = useState(null); // spot passed from Planner → Dashboard
 
-  const T = makeTheme(false);
+  const T = makeTheme();
 
   function goToConditions(spot) {
     setCrossSpot(spot);

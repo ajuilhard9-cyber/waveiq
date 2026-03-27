@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { S } from '../data/spots';
 import { getWeather, getMarine } from '../utils/api';
 import { nearest, searchSpots } from '../utils/geo';
-import { safety, kite, sail, wetsuit, wcolor, WD } from '../utils/safety';
+import { safety, kite, sail, wetsuit, wcolor, WD, visibility } from '../utils/safety';
 import { SPORTS, LEVELS, SC, RC } from '../shared/theme';
 import Compass from '../components/Compass';
 import Badge from '../components/Badge';
 import HourlyChart from '../components/HourlyChart';
 import WeeklyChart from '../components/WeeklyChart';
+import TideChart from '../components/TideChart';
 import WorldMap from '../module1/WorldMap';
 import SpotMap from './SpotMap';
 
@@ -34,6 +35,81 @@ function SectionLabel({ children, T }) {
   return <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:4,marginTop:12,fontWeight:600,paddingBottom:4,borderBottom:"1px solid "+T.line}}>{children}</div>;
 }
 
+function degToCompass(d) { const dirs=["N","NE","E","SE","S","SW","W","NW"]; return dirs[Math.round(d/45)%8]; }
+function windColor(v) { return v>25?"#ef4444":v>15?"#f59e0b":"#22c55e"; }
+function statusDot(st) { return st==="GO"?"#22c55e":st==="CAUTION"?"#f59e0b":"#ef4444"; }
+
+function HourlyTable({ wd, wm, sport, level, T }) {
+  if (!wd?.hourly?.time) return null;
+  const sunriseISO = wd.daily?.sunrise?.[0], sunsetISO = wd.daily?.sunset?.[0];
+  if (!sunriseISO || !sunsetISO) return null;
+  const srH = new Date(sunriseISO).getHours(), ssH = new Date(sunsetISO).getHours();
+  const srM = new Date(sunriseISO).getMinutes(), ssM = new Date(sunsetISO).getMinutes();
+  const srStr = srH.toString().padStart(2,"0")+":"+srM.toString().padStart(2,"0");
+  const ssStr = ssH.toString().padStart(2,"0")+":"+ssM.toString().padStart(2,"0");
+
+  // Build rows for next 24 hours within daylight
+  const now = new Date();
+  const rows = [];
+  const hTimes = wd.hourly.time;
+  const hWind = wd.hourly.wind_speed_10m || [];
+  const hGust = wd.hourly.wind_gusts_10m || [];
+  const hDir = wd.hourly.wind_direction_10m || [];
+  const mTimes = wm?.hourly?.time || [];
+  const mWave = wm?.hourly?.wave_height || [];
+  const mPer = wm?.hourly?.wave_period || [];
+
+  for (let i = 0; i < Math.min(hTimes.length, 24); i++) {
+    const t = new Date(hTimes[i]);
+    if (t < now && t.getHours() !== now.getHours()) continue;
+    const h = t.getHours();
+    const isNight = h < srH || h > ssH;
+    if (isNight) continue;
+    // find matching marine index
+    const tISO = hTimes[i];
+    const mi = mTimes.indexOf(tISO);
+    const wv = mi >= 0 ? (mWave[mi] || 0) : 0;
+    const per = mi >= 0 ? (mPer[mi] || 0) : 0;
+    const w = Math.round(hWind[i] || 0);
+    const g = Math.round(hGust[i] || 0);
+    const dir = hDir[i] || 0;
+    const sf = safety(w, wv, sport, level, false);
+    rows.push({ time: h.toString().padStart(2,"0")+":00", w, g, dir, wv, per: Math.round(per), status: sf.status, isFirst: rows.length === 0 });
+  }
+  if (!rows.length) return null;
+
+  const thStyle = {fontSize:9,color:T.sub,fontWeight:600,letterSpacing:1,padding:"4px 6px",textAlign:"left",borderBottom:"2px solid "+T.border};
+  const tdStyle = (i) => ({fontSize:11,fontFamily:"DM Mono,monospace",padding:"4px 6px",borderBottom:"1px solid #e2e8f0",height:28,background:i%2===0?"#f8fafc":"white"});
+
+  return (
+    <div style={{marginTop:20}}>
+      <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:8,fontWeight:600}}>HOURLY FORECAST (DAYLIGHT)</div>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Time</th><th style={thStyle}>Wind</th><th style={thStyle}>Dir</th><th style={thStyle}>Gusts</th><th style={thStyle}>Waves</th><th style={thStyle}>Period</th><th style={thStyle}>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colSpan={7} style={{fontSize:10,color:"#0ea5e9",fontWeight:600,padding:"4px 6px",background:"#f0f9ff"}}>↑ Sunrise {srStr}</td></tr>
+          {rows.map((r,i) => (
+            <tr key={r.time}>
+              <td style={{...tdStyle(i),fontWeight:600,color:T.text}}>{r.time}</td>
+              <td style={{...tdStyle(i),color:windColor(r.w),fontWeight:700}}>{r.w}<span style={{fontSize:9,color:T.sub}}> kts</span></td>
+              <td style={{...tdStyle(i),color:T.sub}}>{degToCompass(r.dir)}</td>
+              <td style={{...tdStyle(i),color:windColor(r.g),fontWeight:700}}>{r.g}<span style={{fontSize:9,color:T.sub}}> kts</span></td>
+              <td style={tdStyle(i)}>{r.wv.toFixed(1)}<span style={{fontSize:9,color:T.sub}}> m</span></td>
+              <td style={tdStyle(i)}>{r.per}<span style={{fontSize:9,color:T.sub}}> s</span></td>
+              <td style={tdStyle(i)}><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:statusDot(r.status)}}></span></td>
+            </tr>
+          ))}
+          <tr><td colSpan={7} style={{fontSize:10,color:"#f97316",fontWeight:600,padding:"4px 6px",background:"#fff7ed"}}>↓ Sunset {ssStr}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
   const [geo,     setGeo]     = useState(null);
   const [nearby,  setNearby]  = useState([]);
@@ -44,6 +120,8 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
   const [sport,   setSport]   = useState("surf");
   const [level,   setLevel]   = useState("advanced");
   const [copied,  setCopied]  = useState(false);
+  const [lastUpd, setLastUpd] = useState(null);
+  const spotRef = useRef(null);
 
   useEffect(() => {
     if (!navigator.geolocation) { setGeo("denied"); return; }
@@ -54,16 +132,29 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
   }, []);
 
   const pick = useCallback(async s => {
-    setSpot(s); setData(null); setLoading(true);
+    setSpot(s); spotRef.current = s; setData(null); setLoading(true);
     if (onClearInitial) onClearInitial();
     try {
       const [w,m] = await Promise.all([getWeather(s.lat,s.lng), getMarine(s.lat,s.lng)]);
-      setData({w,m});
+      setData({w,m}); setLastUpd(new Date());
     } catch { setData({err:true}); }
     setLoading(false);
   }, [onClearInitial]);
 
   useEffect(() => { if (initialSpot) pick(initialSpot); }, [initialSpot]);
+
+  // Auto-refresh every 10 minutes
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const s = spotRef.current;
+      if (s) {
+        Promise.all([getWeather(s.lat,s.lng), getMarine(s.lat,s.lng)])
+          .then(([w,m]) => { setData({w,m}); setLastUpd(new Date()); })
+          .catch(() => {});
+      }
+    }, 600000);
+    return () => clearInterval(iv);
+  }, []);
 
   const wd       = data?.w, wm = data?.m;
   const wind     = Math.round(wd?.current?.wind_speed_10m      || 0);
@@ -83,6 +174,7 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
   const sunset   =            wd?.daily?.sunset?.[0]           || null;
   const precip   =            wd?.daily?.precipitation_sum?.[0]?? null;
 
+  const vis       = visibility(wave, period);
   const sf        = safety(wind, wave, sport, level);
   const windLabel = wind<8?"Light":wind<16?"Moderate":wind<25?"Fresh":wind<35?"Strong":"Gale";
   const srList    = query ? searchSpots(query) : [];
@@ -109,6 +201,7 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
           </div>
           <div style={{width:8,height:8,borderRadius:"50%",background:RC[spot.region]||"#0ea5e9",flexShrink:0}}/>
         </div>
+        {lastUpd&&<div style={{padding:"2px 14px 4px",fontSize:9,color:T.sub,fontFamily:"DM Mono,monospace",borderBottom:"1px solid "+T.border}}>Updated {fmtTime(lastUpd.toISOString())}</div>}
 
         <div style={{padding:"12px 14px"}}>
           {/* Sport selector */}
@@ -182,6 +275,10 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
             <StatRow label="SWELL DIRECTION" value={dirLabel(swellDir)} T={T}/>
             <StatRow label="SWELL PERIOD" value={Math.round(swellPer||period)} unit="s" T={T}/>
             <StatRow label="WAVE PERIOD" value={Math.round(period)} unit="s" T={T}/>
+            <StatRow label="VISIBILITY" value={vis.label} color={vis.color} T={T}/>
+
+            {/* Tide Chart */}
+            <TideChart lat={spot.lat} lng={spot.lng} T={T}/>
 
             {/* CONDITIONS */}
             <SectionLabel T={T}>CONDITIONS</SectionLabel>
@@ -210,6 +307,7 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
         {data&&!data.err&&<>
           <HourlyChart hourlyW={wd?.hourly} hourlyM={wm?.hourly} T={T}/>
           <WeeklyChart dailyW={wd?.daily} dailyM={wm?.daily} T={T}/>
+          <HourlyTable wd={wd} wm={wm} sport={sport} level={level} T={T}/>
         </>}
         {(!data||data.err)&&!loading&&(
           <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"60%",color:T.sub,fontSize:12}}>
@@ -220,7 +318,7 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
 
       {/* RIGHT: map ~30% */}
       <div style={{width:"30%",flexShrink:0,borderLeft:"1px solid "+T.border,overflow:"hidden"}}>
-        <SpotMap spot={spot} windDir={data&&!data.err?wdir:null} dark={dark} onSelectNearby={pick}/>
+        <SpotMap spot={spot} windDir={data&&!data.err?wdir:null} swellDir={data&&!data.err?swellDir:null} dark={dark} onSelectNearby={pick}/>
       </div>
     </div>
   );

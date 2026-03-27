@@ -5,7 +5,17 @@ export const wcolor  = t => !t||t>=24?"#f97316":t>=18?"#eab308":t>=15?"#6366f1":
 export const kite    = w => w<8?"Too light":w<12?"17-19m":w<16?"14-17m":w<20?"12-14m":w<25?"10-12m":w<30?"9-10m":"7-9m";
 export const sail    = w => w<8?"8-10m":w<14?"6.5-8m":w<18?"5.5-6.5m":w<24?"4.5-5.5m":"3.5-4.5m";
 
-export function safety(wind, wave, sport, level) {
+// Estimates water visibility based on wave height and period
+export function visibility(waveHeight, wavePeriod) {
+  if (waveHeight == null) return { label: "N/A", color: "#94a3b8" };
+  const score = (wavePeriod || 8) / Math.max(waveHeight, 0.3);
+  if (score > 10) return { label: "Good", color: "#22c55e" };
+  if (score > 5)  return { label: "Moderate", color: "#f59e0b" };
+  return { label: "Poor", color: "#ef4444" };
+}
+
+export function safety(wind, wave, sport, level, isNight) {
+  if (isNight) return { status: "NO-GO", score: 0, warnings: ["Night — no activity recommended"] };
   const ex = level==="expert"||level==="advanced", bg = level==="beginner";
   const L = {
     surf:     {minWave:0.3, maxWave:ex?6:bg?1.5:3, maxWind:25},

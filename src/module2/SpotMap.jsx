@@ -2,11 +2,11 @@ import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps
 import { S } from '../data/spots';
 import { RC } from '../shared/theme';
 
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json";
 // ~18000 gives ~50 km radius view in a 300-400px container
 const REGION_SCALE = 18000;
 
-export default function SpotMap({ spot, windDir, onSelectNearby }) {
+export default function SpotMap({ spot, windDir, swellDir, onSelectNearby }) {
   const sea  = "#bfe8f8";
   const land = "#d4e8cc";
   const bord = "#a8ccc0";
@@ -61,6 +61,24 @@ export default function SpotMap({ spot, windDir, onSelectNearby }) {
             {spot.name.slice(0,3).toUpperCase()}
           </text>
         </Marker>
+
+        {windDir != null && [-0.18, 0, 0.18].map((offset, i) => (
+          <Marker key={`wind-${i}`} coordinates={[spot.lng + offset, spot.lat + offset * 0.5 - 0.1]}>
+            <g transform={`rotate(${windDir})`} style={{pointerEvents:"none",opacity:0.5}}>
+              <line x1="0" y1="-7" x2="0" y2="7" stroke="#0ea5e9" strokeWidth="1.5"/>
+              <polygon points="0,-9 -2.5,-4 2.5,-4" fill="#0ea5e9"/>
+            </g>
+          </Marker>
+        ))}
+
+        {swellDir != null && (
+          <Marker coordinates={[spot.lng, spot.lat - 0.3]}>
+            <g transform={`rotate(${swellDir})`} style={{pointerEvents:"none",opacity:0.6}}>
+              <line x1="0" y1="-10" x2="0" y2="8" stroke="#0891b2" strokeWidth="2" strokeDasharray="3,2"/>
+              <polygon points="0,-12 -3,-6 3,-6" fill="#0891b2"/>
+            </g>
+          </Marker>
+        )}
       </ComposableMap>
 
       {/* Spot label overlay */}
@@ -68,6 +86,7 @@ export default function SpotMap({ spot, windDir, onSelectNearby }) {
         <div style={{fontSize:13,fontWeight:800,color:"#0f172a",fontFamily:"Syne,sans-serif",letterSpacing:-0.3}}>{spot.name}</div>
         <div style={{fontSize:10,color:"#94a3b8"}}>{spot.country} · {spot.region}</div>
         {windDir!=null&&<div style={{fontSize:9,color:"#0ea5e9",marginTop:3,fontWeight:600,fontFamily:"DM Mono,monospace"}}>WIND {Math.round(windDir)}°</div>}
+        {swellDir!=null&&<div style={{fontSize:9,color:"#0891b2",marginTop:2,fontWeight:600,fontFamily:"DM Mono,monospace"}}>SWELL {Math.round(swellDir)}°</div>}
       </div>
 
       {nearby.length>0&&(

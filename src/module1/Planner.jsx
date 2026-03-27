@@ -20,13 +20,19 @@ function Select({ label, value, onChange, options, T }) {
   );
 }
 
+const REGIONS = ["All","Europe","Atlantic","Pacific","Indian Ocean","Caribbean","Mediterranean","Asia","Africa","S.America"];
+const REGION_MAP = {"Indian Ocean":"Indian"};
+
 export default function Planner({ T, onGoToConditions }) {
   const now = new Date();
   const [sport,    setSport]    = useState("surf");
   const [month,    setMonth]    = useState(now.getMonth());
   const [selected, setSelected] = useState(null);
+  const [filterRegion, setFilterRegion] = useState("All");
 
-  const picks = topPicks(sport, month, 5);
+  const filterFn = s => filterRegion === "All" || s.region === (REGION_MAP[filterRegion] || filterRegion);
+  const filteredSpots = S.filter(filterFn);
+  const picks = topPicks(sport, month, 5).filter(filterFn);
   const sportOptions = SPORTS.map(s => [s, s==="sup"?"SUP":s.charAt(0).toUpperCase()+s.slice(1)]);
 
   return (
@@ -37,6 +43,19 @@ export default function Planner({ T, onGoToConditions }) {
         <div style={{padding:"16px 16px 0",flexShrink:0}}>
           <div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:T.text,marginBottom:16,paddingBottom:12,borderBottom:"1px solid "+T.border}}>VACATION PLANNER</div>
           <Select label="SPORT" value={sport} onChange={setSport} options={sportOptions} T={T}/>
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:9,color:"#64748b",letterSpacing:2,marginBottom:5,fontWeight:600}}>REGION</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+              {REGIONS.map(r=>(
+                <button key={r} onClick={()=>setFilterRegion(r)}
+                  style={{padding:"3px 8px",borderRadius:20,border:"1px solid "+(r===filterRegion?"#0ea5e9":"#e2e8f0"),
+                    background:r===filterRegion?"#0ea5e9":"transparent",color:r===filterRegion?"#fff":"#64748b",
+                    fontSize:10,fontWeight:r===filterRegion?700:500,cursor:"pointer",fontFamily:"DM Sans,sans-serif",transition:"all .1s"}}>
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Top 5 */}
@@ -80,7 +99,7 @@ export default function Planner({ T, onGoToConditions }) {
 
         {/* Rankings */}
         <div style={{padding:"16px",borderTop:"1px solid "+T.border,flex:1}}>
-          <Rankings spots={S} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)} T={T}/>
+          <Rankings spots={filteredSpots} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)} T={T}/>
         </div>
       </div>
 
@@ -97,7 +116,7 @@ export default function Planner({ T, onGoToConditions }) {
         </div>
         {/* Map */}
         <div style={{flex:1,overflow:"hidden"}}>
-          <WorldMap spots={S} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)} dark={false}/>
+          <WorldMap spots={filteredSpots} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)} dark={false}/>
         </div>
       </div>
     </div>

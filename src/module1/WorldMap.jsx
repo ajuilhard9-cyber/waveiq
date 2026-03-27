@@ -4,13 +4,33 @@ import { gradeScore, gradeLabel, gradeColor } from '../data/spots';
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
+const HEATMAP_COLORS = {A:'#22c55e',B:'#84cc16',C:'#f59e0b',D:'#f97316',F:'#ef4444'};
+
+function clusterSpots(spots, zoom) {
+  const radius = 12 / zoom;
+  const used = new Set();
+  const clusters = [];
+  for (const s of spots) {
+    if (used.has(s.id)) continue;
+    const group = spots.filter(o => !used.has(o.id) && Math.sqrt((o.lat-s.lat)**2 + (o.lng-s.lng)**2) < radius);
+    group.forEach(o => used.add(o.id));
+    const lat = group.reduce((a,b) => a + b.lat, 0) / group.length;
+    const lng = group.reduce((a,b) => a + b.lng, 0) / group.length;
+    clusters.push({ id: `c-${s.id}`, lat, lng, spots: group, isCluster: group.length > 1 });
+  }
+  return clusters;
+}
+
 export default function WorldMap({ spots, sport, month, selectedId, onSelect, dark }) {
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState([10, 10]);
+  const [showHeatmap, setShowHeatmap] = useState(false);
   const bg   = dark ? "#0b1120" : "#c2dff5";
   const land = dark ? "#162035" : "#d4e8cc";
   const bord = dark ? "#1e2d45" : "#b0ccb8";
   const showLabels = zoom > 2;
+  const useClusters = zoom <= 1.5;
+  const clusters = useClusters ? clusterSpots(spots, zoom) : null;
 
   return (
     <div style={{width:"100%",height:"100%",background:bg,position:"relative"}}>
@@ -31,12 +51,51 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
               />
             ))}
           </Geographies>
-          {spots.map(s => {
+          {useClusters ? clusters.map(cl => {
+            if (cl.isCluster) {
+              return (
+                <Marker key={cl.id} coordinates={[cl.lng, cl.lat]}
+                  onClick={() => { setZoom(z => z * 1.8); setCenter([cl.lng, cl.lat]); }}>
+                  <circle r={12 + cl.spots.length} fill="#94a3b8" stroke={dark?"#0b1120":"white"} strokeWidth={1.5}
+                    style={{cursor:"pointer",opacity:0.85}} />
+                  <text textAnchor="middle" dominantBaseline="central"
+                    style={{fontSize:10,fontWeight:700,fill:"white",fontFamily:"DM Mono,monospace",pointerEvents:"none"}}>
+                    {cl.spots.length}
+                  </text>
+                </Marker>
+              );
+            }
+            const s = cl.spots[0];
+            const g = gradeLabel(gradeScore(s, sport, month));
+            const col = gradeColor(g);
+            const sel = s.id === selectedId;
+            const hc = HEATMAP_COLORS[g] || '#94a3b8';
+            return (
+              <Marker key={cl.id} coordinates={[s.lng, s.lat]} onClick={() => onSelect(s)}>
+                {showHeatmap && <circle r={20} fill={hc} opacity={0.12} style={{pointerEvents:"none"}} />}
+                <circle r={sel?10:6} fill={col} stroke={dark?"#0b1120":"white"} strokeWidth={sel?2.5:1.5}
+                  style={{cursor:"pointer", filter:sel?`drop-shadow(0 0 8px ${col})`:"none", transition:"r .15s"}} />
+                <text textAnchor="middle" y={sel?-14:-10}
+                  style={{fontSize:sel?10:8, fontWeight:700, fill:col, fontFamily:"DM Mono,monospace", pointerEvents:"none", opacity:sel?1:0.85}}>
+                  {g}
+                </text>
+                {(sel || showLabels) && (
+                  <text textAnchor="middle" y={22}
+                    style={{fontSize:9, fontWeight:600, fill:sel?"white":(dark?"#94a3b8":"#475569"), fontFamily:"DM Sans,sans-serif", pointerEvents:"none",
+                      textShadow:dark?"0 1px 4px #000":"none"}}>
+                    {s.name}
+                  </text>
+                )}
+              </Marker>
+            );
+          }) : spots.map(s => {
             const g   = gradeLabel(gradeScore(s, sport, month));
             const col = gradeColor(g);
             const sel = s.id === selectedId;
+            const hc = HEATMAP_COLORS[g] || '#94a3b8';
             return (
               <Marker key={s.id} coordinates={[s.lng, s.lat]} onClick={() => onSelect(s)}>
+                {showHeatmap && <circle r={20} fill={hc} opacity={0.12} style={{pointerEvents:"none"}} />}
                 <circle r={sel?10:6} fill={col} stroke={dark?"#0b1120":"white"} strokeWidth={sel?2.5:1.5}
                   style={{cursor:"pointer", filter:sel?`drop-shadow(0 0 8px ${col})`:"none", transition:"r .15s"}}
                 />
@@ -56,6 +115,14 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
           })}
         </ZoomableGroup>
       </ComposableMap>
+
+      {/* Heatmap toggle — top right */}
+      <button onClick={() => setShowHeatmap(h => !h)}
+        style={{position:"absolute",top:12,right:12,padding:"5px 12px",borderRadius:4,border:"1px solid "+(showHeatmap?"#0ea5e9":"#cbd5e1"),
+          background:showHeatmap?"#0ea5e9":"white",color:showHeatmap?"white":"#64748b",fontSize:11,fontWeight:600,cursor:"pointer",
+          fontFamily:"DM Sans,sans-serif",boxShadow:"0 1px 4px rgba(0,0,0,0.12)",transition:"all .15s"}}>
+        Heatmap
+      </button>
 
       {/* Zoom controls — bottom left */}
       <div style={{position:"absolute",bottom:16,left:16,display:"flex",flexDirection:"column",gap:4}}>

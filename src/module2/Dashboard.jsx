@@ -407,7 +407,7 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
 
       {/* RIGHT: map ~30% */}
       <div style={{width:"30%",flexShrink:0,borderLeft:"1px solid "+T.border,overflow:"hidden"}}>
-        <SpotMap spot={spot} windDir={data&&!data.err?wdir:null} swellDir={data&&!data.err?swellDir:null} dark={dark} onSelectNearby={pick}/>
+        <SpotMap spot={spot} windDir={data&&!data.err?wdir:null} swellDir={data&&!data.err?swellDir:null} wind={data&&!data.err?wind:null} wave={data&&!data.err?wave:null} onSelectNearby={pick}/>
       </div>
     </div>
   );

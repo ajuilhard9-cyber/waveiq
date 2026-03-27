@@ -57,14 +57,14 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
   }, [popupCluster]);
 
   const getSpotColor = useCallback((s) => {
-    if (mapMode === "wind") return WIND_COLORS[s.seasonal.wind[month]] || '#bfdbfe';
-    if (mapMode === "wave") return WAVE_COLORS[s.seasonal.swell[month]] || '#d1fae5';
+    if (mapMode === "wind") return WIND_COLORS[s.wind[month]] || '#bfdbfe';
+    if (mapMode === "wave") return WAVE_COLORS[s.swell[month]] || '#d1fae5';
     return gradeColor(gradeLabel(gradeScore(s, sport, month)));
   }, [mapMode, month, sport]);
 
   const getHaloColor = useCallback((s) => {
-    if (mapMode === "wind") return WIND_COLORS[s.seasonal.wind[month]] || '#bfdbfe';
-    if (mapMode === "wave") return WAVE_COLORS[s.seasonal.swell[month]] || '#d1fae5';
+    if (mapMode === "wind") return WIND_COLORS[s.wind[month]] || '#bfdbfe';
+    if (mapMode === "wave") return WAVE_COLORS[s.swell[month]] || '#d1fae5';
     const g = gradeLabel(gradeScore(s, sport, month));
     return HEATMAP_COLORS[g] || '#94a3b8';
   }, [mapMode, month, sport]);

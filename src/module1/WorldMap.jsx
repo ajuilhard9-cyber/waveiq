@@ -114,7 +114,11 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
     const hc  = getHaloColor(s);
     return (
       <Marker key={key || s.id} coordinates={[s.lng, s.lat]} onClick={() => { onSelect(s); setPopupCluster(null); }}>
-        {showHalo(s) && <circle r={20} fill={hc} opacity={0.12} style={{pointerEvents:"none"}} />}
+        {showHalo(s) && <>
+          <circle r={90} fill={hc} opacity={0.08} style={{pointerEvents:"none"}}/>
+          <circle r={50} fill={hc} opacity={0.18} style={{pointerEvents:"none"}}/>
+          <circle r={22} fill={hc} opacity={0.28} style={{pointerEvents:"none"}}/>
+        </>}
         <circle r={sel?10:6} fill={col} stroke={dark?"#0b1120":"white"} strokeWidth={sel?2.5:1.5}
           style={{cursor:"pointer", filter:sel?`drop-shadow(0 0 8px ${col})`:"none", transition:"r .15s"}} />
         {mapMode === "grade" && (
@@ -215,14 +219,14 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
             </div>
           ))
         ) : mapMode === "wind" ? (
-          [[1,"#bfdbfe"],[3,"#60a5fa"],[5,"#1e3a8a"]].map(([v,c])=>(
+          [["Low","#bfdbfe"],["Med","#60a5fa"],["High","#1e3a8a"]].map(([v,c])=>(
             <div key={v} style={{display:"flex",alignItems:"center",gap:4}}>
               <div style={{width:8,height:8,borderRadius:"50%",background:c}}/>
               <span style={{fontSize:10,color:dark?"#94a3b8":"#64748b",fontFamily:"DM Mono,monospace",fontWeight:600}}>{v}</span>
             </div>
           ))
         ) : (
-          [[1,"#d1fae5"],[3,"#10b981"],[5,"#064e3b"]].map(([v,c])=>(
+          [["Low","#d1fae5"],["Med","#10b981"],["High","#064e3b"]].map(([v,c])=>(
             <div key={v} style={{display:"flex",alignItems:"center",gap:4}}>
               <div style={{width:8,height:8,borderRadius:"50%",background:c}}/>
               <span style={{fontSize:10,color:dark?"#94a3b8":"#64748b",fontFamily:"DM Mono,monospace",fontWeight:600}}>{v}</span>

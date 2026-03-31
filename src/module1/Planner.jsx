@@ -23,7 +23,7 @@ function Select({ label, value, onChange, options, T }) {
 const REGIONS = ["All","Europe","Atlantic","Pacific","Indian Ocean","Caribbean","Mediterranean","Asia","Africa","S.America"];
 const REGION_MAP = {"Indian Ocean":"Indian"};
 
-export default function Planner({ T, onGoToConditions }) {
+export default function Planner({ T, onGoToConditions, isMobile }) {
   const now = new Date();
   const [sport,    setSport]    = useState("surf");
   const [month,    setMonth]    = useState(now.getMonth());
@@ -36,10 +36,10 @@ export default function Planner({ T, onGoToConditions }) {
   const sportOptions = SPORTS.map(s => [s, s==="sup"?"SUP":s.charAt(0).toUpperCase()+s.slice(1)]);
 
   return (
-    <div style={{display:"flex",height:"calc(100vh - 48px)",fontFamily:"DM Sans,sans-serif",overflow:"hidden"}}>
+    <div style={{display:"flex",flexDirection:isMobile?"column":"row",height:isMobile?"auto":"calc(100vh - 48px)",minHeight:isMobile?"100%":undefined,fontFamily:"DM Sans,sans-serif",overflow:isMobile?"auto":"hidden"}}>
 
       {/* Left sidebar */}
-      <div style={{width:280,flexShrink:0,borderRight:"1px solid "+T.border,overflowY:"auto",background:T.card,display:"flex",flexDirection:"column"}}>
+      <div style={{width:isMobile?"100%":280,flexShrink:0,borderRight:isMobile?"none":"1px solid "+T.border,borderBottom:isMobile?"1px solid "+T.border:"none",overflowY:isMobile?"visible":"auto",background:T.card,display:"flex",flexDirection:"column"}}>
         <div style={{padding:"16px 16px 0",flexShrink:0}}>
           <div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:T.text,marginBottom:16,paddingBottom:12,borderBottom:"1px solid "+T.border}}>VACATION PLANNER</div>
           <Select label="SPORT" value={sport} onChange={setSport} options={sportOptions} T={T}/>
@@ -98,13 +98,13 @@ export default function Planner({ T, onGoToConditions }) {
         )}
 
         {/* Rankings */}
-        <div style={{padding:"16px",borderTop:"1px solid "+T.border,flex:1}}>
+        <div style={{padding:"16px",borderTop:"1px solid "+T.border,flex:isMobile?undefined:1,maxHeight:isMobile?400:undefined,overflowY:isMobile?"auto":undefined}}>
           <Rankings spots={filteredSpots} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)} T={T}/>
         </div>
       </div>
 
       {/* Map + month strip */}
-      <div style={{flex:1,overflow:"hidden",position:"relative",display:"flex",flexDirection:"column"}}>
+      <div style={{flex:isMobile?undefined:1,overflow:isMobile?"visible":"hidden",position:"relative",display:"flex",flexDirection:"column"}}>
         {/* Horizontal month pills */}
         <div style={{flexShrink:0,background:"#ffffff",borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",gap:6,padding:"8px 16px",flexWrap:"wrap"}}>
           {MONTHS.map((m,i)=>(
@@ -115,7 +115,7 @@ export default function Planner({ T, onGoToConditions }) {
           ))}
         </div>
         {/* Map */}
-        <div style={{flex:1,overflow:"hidden"}}>
+        <div style={{flex:isMobile?undefined:1,overflow:"hidden",height:isMobile?300:undefined}}>
           <WorldMap spots={filteredSpots} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)} dark={false}/>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { WD } from '../utils/safety';
-export default function Compass({ deg, speed, T }) {
+export default function Compass({ deg, speed, unit, T }) {
   const dir = WD[Math.round(deg/22.5)%16];
   return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
@@ -16,7 +16,7 @@ export default function Compass({ deg, speed, T }) {
       </svg>
       <div style={{textAlign:"center"}}>
         <div style={{fontSize:34,fontWeight:800,fontFamily:"Syne,sans-serif",color:"#0ea5e9",lineHeight:1,letterSpacing:-1}}>{speed}</div>
-        <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginTop:3}}>{dir} · KTS</div>
+        <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginTop:3}}>{dir} · {(unit||"KTS").toUpperCase()}</div>
       </div>
     </div>
   );

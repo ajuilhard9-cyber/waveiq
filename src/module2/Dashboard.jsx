@@ -199,7 +199,32 @@ function HourlyTable({ wd, wm, sport, level, T }) {
   );
 }
 
-export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
+function SwellArrow({ dir, period, T }) {
+  const cardinals = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  const cardinal = cardinals[Math.round(dir / 22.5) % 16];
+  return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"8px 0"}}>
+      <svg width="60" height="60" viewBox="-30 -30 60 60">
+        <circle cx="0" cy="0" r="28" fill="none" stroke={T.border} strokeWidth="1"/>
+        {["N","E","S","W"].map((d,i) => (
+          <text key={d} x={[0,22,-22,0][i]} y={[-19,5,26,5][i]}
+            textAnchor="middle" style={{fontSize:7,fill:T.sub,fontFamily:"DM Mono,monospace",fontWeight:600}}>
+            {d}
+          </text>
+        ))}
+        <g transform={`rotate(${dir})`}>
+          <line x1="0" y1="-20" x2="0" y2="8" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round"/>
+          <polygon points="0,-24 -4,-16 4,-16" fill="#6366f1"/>
+          <circle cx="0" cy="0" r="3" fill="#6366f1"/>
+        </g>
+      </svg>
+      <div style={{fontFamily:"DM Mono,monospace",fontSize:12,fontWeight:700,color:"#6366f1"}}>{Math.round(dir)}° {cardinal}</div>
+      {period > 0 && <div style={{fontSize:9,color:T.sub,fontWeight:600}}>PERIOD {Math.round(period)}s</div>}
+    </div>
+  );
+}
+
+export default function Dashboard({ T, dark, isMobile, initialSpot, onClearInitial }) {
   const [geo,     setGeo]     = useState(null);
   const [nearby,  setNearby]  = useState([]);
   const [query,   setQuery]   = useState("");
@@ -210,6 +235,13 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
   const [level,   setLevel]   = useState("advanced");
   const [copied,  setCopied]  = useState(false);
   const [lastUpd, setLastUpd] = useState(null);
+  const [imperial, setImperial] = useState(false);
+  const [forecastTab, setForecastTab] = useState("today");
+  const [gearOpen, setGearOpen] = useState(false);
+  const [favs, setFavs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("waveiq_favs") || "[]"); }
+    catch { return []; }
+  });
   const spotRef = useRef(null);
 
   useEffect(() => {
@@ -245,6 +277,16 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
     return () => clearInterval(iv);
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem("waveiq_favs", JSON.stringify(favs));
+  }, [favs]);
+
+  const toggleFav = id => setFavs(f => f.includes(id) ? f.filter(x => x !== id) : [...f, id]);
+
+  const toF = c => Math.round(c * 9/5 + 32);
+  const toFt = m => (m * 3.281).toFixed(1);
+  const toMph = k => Math.round(k * 1.151);
+
   const wd       = data?.w, wm = data?.m;
   const wind     = Math.round(wd?.current?.wind_speed_10m      || 0);
   const gust     = Math.round(wd?.current?.wind_gusts_10m      || 0);
@@ -263,9 +305,20 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
   const sunset   =            wd?.daily?.sunset?.[0]           || null;
   const precip   =            wd?.daily?.precipitation_sum?.[0]?? null;
 
+  const dWind  = imperial ? toMph(wind)  : wind;
+  const dGust  = imperial ? toMph(gust)  : gust;
+  const dWave  = imperial ? toFt(wave)   : wave.toFixed(1);
+  const dSwell = imperial ? toFt(swell)  : swell.toFixed(1);
+  const dAirT  = imperial ? toF(airT)    : airT;
+  const dFeelT = imperial ? toF(feelT)   : feelT;
+  const dSst   = sst != null ? (imperial ? toF(Math.round(sst)) : Math.round(sst)) : null;
+  const wUnit  = imperial ? "mph" : "kts";
+  const hUnit  = imperial ? "ft"  : "m";
+  const tUnit  = imperial ? "°F"  : "°C";
+
   const vis       = visibility(wave, period);
   const sf        = safety(wind, wave, sport, level);
-  const windLabel = wind<8?"Light":wind<16?"Moderate":wind<25?"Fresh":wind<35?"Strong":"Gale";
+  const windLabel = dWind<(imperial?9:8)?"Light":dWind<(imperial?18:16)?"Moderate":dWind<(imperial?29:25)?"Fresh":dWind<(imperial?40:35)?"Strong":"Gale";
   const srList    = query ? searchSpots(query) : [];
   const listSpots = geo&&geo!=="denied" ? nearby : S.slice(0,8);
 
@@ -277,13 +330,17 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
 
   // ── SPOT DETAIL VIEW ──
   if (spot) return (
-    <div style={{display:"flex",height:"calc(100vh - 48px)",overflow:"hidden",fontFamily:"DM Sans,sans-serif"}}>
+    <div style={{display:"flex",flexDirection:isMobile?"column":"row",height:"calc(100vh - 48px)",overflow:isMobile?"auto":"hidden",fontFamily:"DM Sans,sans-serif"}}>
 
       {/* LEFT: conditions panel */}
-      <div style={{width:280,flexShrink:0,borderRight:"1px solid "+T.border,overflowY:"auto",background:T.card}}>
+      <div style={{width:isMobile?"100%":280,flexShrink:0,borderRight:isMobile?"none":"1px solid "+T.border,borderBottom:isMobile?"1px solid "+T.border:"none",overflowY:isMobile?"visible":"auto",background:T.card}}>
         {/* Header */}
         <div style={{padding:"12px 14px",borderBottom:"1px solid "+T.border,display:"flex",alignItems:"center",gap:8}}>
           <button onClick={()=>{setSpot(null);setData(null);}} style={{background:"none",border:"1px solid "+T.border,color:T.sub,fontSize:11,cursor:"pointer",padding:"4px 9px",borderRadius:3,fontWeight:600,fontFamily:"DM Sans,sans-serif"}}>← Back</button>
+          <button onClick={() => toggleFav(spot.id)}
+            style={{background:"none",border:"1px solid "+T.border,color:favs.includes(spot.id)?"#f59e0b":"#94a3b8",fontSize:16,cursor:"pointer",padding:"4px 7px",borderRadius:3,lineHeight:1}}>
+            ★
+          </button>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontWeight:800,fontSize:14,fontFamily:"Syne,sans-serif",color:T.text,letterSpacing:-0.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{spot.name}</div>
             <div style={{fontSize:10,color:T.sub}}>{spot.country} · {spot.region}</div>
@@ -338,30 +395,95 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
             <div style={{marginBottom:10}}><Badge status={sf.status} score={sf.score} warnings={sf.warnings}/></div>
 
             {/* Share button */}
-            <button onClick={handleShare} style={{width:"100%",padding:"7px",borderRadius:4,border:"1px solid "+(copied?"#bbf7d0":T.border),background:copied?"#f0fdf4":T.bg,color:copied?"#15803d":T.sub,fontSize:11,fontWeight:700,cursor:"pointer",letterSpacing:0.5,marginBottom:12,transition:"all .2s"}}>
+            <button onClick={handleShare} style={{width:"100%",padding:"7px",borderRadius:4,border:"1px solid "+(copied?"#bbf7d0":T.border),background:copied?"#f0fdf4":T.bg,color:copied?"#15803d":T.sub,fontSize:11,fontWeight:700,cursor:"pointer",letterSpacing:0.5,marginBottom:8,transition:"all .2s"}}>
               {copied?"✓ COPIED":"SHARE CONDITIONS"}
+            </button>
+            <button onClick={() => setImperial(i => !i)}
+              style={{width:"100%",padding:"7px",borderRadius:4,border:"1px solid "+T.border,background:T.bg,color:T.sub,fontSize:11,fontWeight:700,cursor:"pointer",letterSpacing:0.5,marginBottom:12,transition:"all .2s"}}>
+              {imperial ? "SWITCH TO METRIC" : "SWITCH TO IMPERIAL"}
             </button>
 
             {/* Compass */}
             <div style={{display:"flex",justifyContent:"center",marginBottom:2}}>
-              <Compass deg={wdir} speed={wind} T={T}/>
+              <Compass deg={wdir} speed={dWind} unit={wUnit} T={T}/>
             </div>
 
             {/* WIND */}
             <SectionLabel T={T}>WIND</SectionLabel>
             <StatRow label="DIRECTION" value={dirLabel(wdir)} T={T}/>
-            <StatRow label="GUSTS" value={gust} unit="kts" color={gust>25?"#f43f5e":gust>15?"#f59e0b":T.text} T={T}/>
+            <StatRow label="GUSTS" value={dGust} unit={wUnit} color={gust>25?"#f43f5e":gust>15?"#f59e0b":T.text} T={T}/>
             <StatRow label="CONDITIONS" value={windLabel} T={T}/>
             {(sport==="kite"||sport==="windsurf")&&(
               <StatRow label={sport==="kite"?"KITE SIZE":"SAIL SIZE"} value={sport==="kite"?kite(wind):sail(wind)} color="#0ea5e9" T={T}/>
             )}
 
+            {/* GEAR CALCULATOR */}
+            <div style={{background:T.hi,border:"1px solid "+T.border,borderRadius:6,padding:"10px 12px",marginBottom:10,marginTop:12}}>
+              <button onClick={()=>setGearOpen(o=>!o)} style={{background:"none",border:"none",cursor:"pointer",padding:0,width:"100%",textAlign:"left",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:9,color:T.sub,fontWeight:600,letterSpacing:2}}>GEAR CALCULATOR</span>
+                <span style={{fontSize:10,color:"#0ea5e9",fontWeight:700}}>{gearOpen?"▼":"▶"}</span>
+              </button>
+              {gearOpen&&(
+                <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8}}>
+                  {/* Wetsuit — always shown */}
+                  {sst!=null&&(
+                    <div>
+                      <div style={{fontSize:9,color:T.sub,fontWeight:600,letterSpacing:1,marginBottom:4}}>WETSUIT</div>
+                      <span style={{background:"#f0f9ff",border:"1px solid #bae6fd",color:"#0369a1",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,fontFamily:"DM Mono,monospace",display:"inline-block"}}>{wetsuit(sst)}</span>
+                    </div>
+                  )}
+                  {/* Kite */}
+                  {sport==="kite"&&(
+                    <div>
+                      <div style={{fontSize:9,color:T.sub,fontWeight:600,letterSpacing:1,marginBottom:4}}>KITE</div>
+                      {wind<8
+                        ?<span style={{background:"#fff7ed",border:"1px solid #fed7aa",color:"#9a3412",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,fontFamily:"DM Mono,monospace",display:"inline-block"}}>Wind too light for kite</span>
+                        :wind>35
+                        ?<span style={{background:"#fef2f2",border:"1px solid #fecaca",color:"#991b1b",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,fontFamily:"DM Mono,monospace",display:"inline-block"}}>Wind too strong for kite</span>
+                        :<span style={{background:"#f0f9ff",border:"1px solid #bae6fd",color:"#0369a1",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,fontFamily:"DM Mono,monospace",display:"inline-block"}}>{kite(wind)}</span>
+                      }
+                    </div>
+                  )}
+                  {/* Windsurf */}
+                  {sport==="windsurf"&&(
+                    <>
+                      <div>
+                        <div style={{fontSize:9,color:T.sub,fontWeight:600,letterSpacing:1,marginBottom:4}}>SAIL</div>
+                        <span style={{background:"#f0f9ff",border:"1px solid #bae6fd",color:"#0369a1",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,fontFamily:"DM Mono,monospace",display:"inline-block"}}>{sail(wind)}</span>
+                      </div>
+                      <div>
+                        <div style={{fontSize:9,color:T.sub,fontWeight:600,letterSpacing:1,marginBottom:4}}>BOARD</div>
+                        <span style={{background:"#f0f9ff",border:"1px solid #bae6fd",color:"#0369a1",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,fontFamily:"DM Mono,monospace",display:"inline-block"}}>{wind<12?"Longboard / Freeride":wind<=20?"Freeride / Wave":"Wave / Slalom"}</span>
+                      </div>
+                    </>
+                  )}
+                  {/* Surf */}
+                  {sport==="surf"&&(
+                    <div>
+                      <div style={{fontSize:9,color:T.sub,fontWeight:600,letterSpacing:1,marginBottom:4}}>BOARD</div>
+                      <span style={{background:"#f0f9ff",border:"1px solid #bae6fd",color:"#0369a1",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,fontFamily:"DM Mono,monospace",display:"inline-block"}}>{wave<0.5?"Flat — no surf":wave<1.0?"Longboard (9ft+)":wave<1.5?"Mid-length (7–8ft)":wave<2.5?"Shortboard (6–7ft)":"Gun / Big Wave (7ft+)"}</span>
+                    </div>
+                  )}
+                  {/* SUP / Foil */}
+                  {(sport==="sup"||sport==="foil")&&(
+                    <div>
+                      <div style={{fontSize:9,color:T.sub,fontWeight:600,letterSpacing:1,marginBottom:4}}>BOARD</div>
+                      <span style={{background:"#f0f9ff",border:"1px solid #bae6fd",color:"#0369a1",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,fontFamily:"DM Mono,monospace",display:"inline-block"}}>{wave<0.3?"Flat water / Touring SUP":wave<0.8?"All-around SUP":"Wave SUP / Foil"}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* WAVES */}
             <SectionLabel T={T}>WAVES</SectionLabel>
-            <StatRow label="HEIGHT" value={wave.toFixed(1)} unit="m" color="#0ea5e9" T={T}/>
+            <StatRow label="HEIGHT" value={dWave} unit={hUnit} color="#0ea5e9" T={T}/>
             <StatRow label="WAVE DIRECTION" value={dirLabel(waveDir)} T={T}/>
-            <StatRow label="SWELL HEIGHT" value={swell.toFixed(1)} unit="m" T={T}/>
-            <StatRow label="SWELL DIRECTION" value={dirLabel(swellDir)} T={T}/>
+            <StatRow label="SWELL HEIGHT" value={dSwell} unit={hUnit} T={T}/>
+            <div style={{paddingBottom:8,borderBottom:"1px solid "+T.border}}>
+              <div style={{fontSize:9,color:T.sub,fontWeight:600,letterSpacing:1,marginBottom:4}}>SWELL DIRECTION</div>
+              <SwellArrow dir={swellDir} period={swellPer||period} T={T}/>
+            </div>
             <StatRow label="SWELL PERIOD" value={Math.round(swellPer||period)} unit="s" T={T}/>
             <StatRow label="WAVE PERIOD" value={Math.round(period)} unit="s" T={T}/>
             <StatRow label="VISIBILITY" value={vis.label} color={vis.color} T={T}/>
@@ -371,11 +493,11 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
 
             {/* CONDITIONS */}
             <SectionLabel T={T}>CONDITIONS</SectionLabel>
-            <StatRow label="AIR TEMP" value={airT} unit="°C" T={T}/>
-            <StatRow label="FEELS LIKE" value={feelT} unit="°C" T={T}/>
+            <StatRow label="AIR TEMP" value={dAirT} unit={tUnit} T={T}/>
+            <StatRow label="FEELS LIKE" value={dFeelT} unit={tUnit} T={T}/>
             <StatRow label="UV INDEX" value={uv.toFixed(1)} color={uv>7?"#f43f5e":uv>3?"#f59e0b":"#22c55e"} T={T}/>
             {precip!=null&&<StatRow label="PRECIP TODAY" value={precip.toFixed(1)} unit="mm" T={T}/>}
-            {sst!=null&&<StatRow label="WATER TEMP" value={Math.round(sst)} unit="°C" color={wcolor(sst)} T={T}/>}
+            {sst!=null&&<StatRow label="WATER TEMP" value={dSst} unit={tUnit} color={wcolor(sst)} T={T}/>}
             {sst!=null&&<StatRow label="WETSUIT" value={wetsuit(sst)} T={T}/>}
 
             {/* SUN */}
@@ -387,16 +509,92 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
       </div>
 
       {/* CENTER: charts */}
-      <div style={{flex:1,overflowY:"auto",background:T.bg,padding:"20px 24px"}}>
+      <div style={{flex:1,overflowY:"auto",background:T.bg,padding:isMobile?"16px 12px":"20px 24px"}}>
         {loading&&(
           <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"60%"}}>
             <div style={{color:T.sub,fontSize:13}}>Loading forecast data…</div>
           </div>
         )}
         {data&&!data.err&&<>
-          <HourlyChart hourlyW={wd?.hourly} hourlyM={wm?.hourly} T={T}/>
-          <WeeklyChart dailyW={wd?.daily} dailyM={wm?.daily} T={T}/>
-          <HourlyTable wd={wd} wm={wm} sport={sport} level={level} T={T}/>
+          <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"1px solid "+T.border}}>
+            {[["today","TODAY"],["week","7 DAYS"]].map(([tab,label]) => (
+              <button key={tab} onClick={() => setForecastTab(tab)}
+                style={{padding:"8px 20px",border:"none",borderBottom:"2px solid "+(forecastTab===tab?"#0ea5e9":"transparent"),
+                  background:"none",color:forecastTab===tab?"#0ea5e9":T.sub,fontWeight:700,fontSize:11,cursor:"pointer",
+                  fontFamily:"DM Sans,sans-serif",letterSpacing:1,transition:"all .15s"}}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {forecastTab === "today" && <>
+            <HourlyChart hourlyW={wd?.hourly} hourlyM={wm?.hourly} T={T}/>
+            <WeeklyChart dailyW={wd?.daily} dailyM={wm?.daily} T={T}/>
+            <HourlyTable wd={wd} wm={wm} sport={sport} level={level} T={T}/>
+          </>}
+          {forecastTab === "week" && wd?.daily?.time && (
+            <div>
+              <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:12,fontWeight:600}}>7-DAY FORECAST</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {wd.daily.time.slice(0,7).map((dateStr, i) => {
+                  const date = new Date(dateStr);
+                  const dayName = date.toLocaleDateString("en-US",{weekday:"short"}).toUpperCase();
+                  const isToday = i === 0;
+                  const wMax  = Math.round(wd.daily.wind_speed_10m_max?.[i]    || 0);
+                  const gMax  = Math.round(wd.daily.wind_gusts_10m_max?.[i]    || 0);
+                  const wDir  = wd.daily.wind_direction_10m_dominant?.[i]       || 0;
+                  const tMax  = Math.round(wd.daily.temperature_2m_max?.[i]    || 0);
+                  const tMin  = Math.round(wd.daily.temperature_2m_min?.[i]    || 0);
+                  const rain  = wd.daily.precipitation_sum?.[i]                 || 0;
+                  const wvMax = wm?.daily?.wave_height_max?.[i]                 || 0;
+                  const swMax = wm?.daily?.swell_wave_height_max?.[i]           || 0;
+                  const dirLabels = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+                  const wDirLabel = dirLabels[Math.round(wDir/22.5)%16];
+                  const sf = safety(wMax, wvMax, sport, level);
+                  const dispWMax = imperial ? toMph(wMax) : wMax;
+                  const dispWvMax = imperial ? toFt(wvMax) : wvMax.toFixed(1);
+                  const dispSwMax = imperial ? toFt(swMax) : swMax.toFixed(1);
+                  const dispTMax = imperial ? toF(tMax) : tMax;
+                  const dispTMin = imperial ? toF(tMin) : tMin;
+                  return (
+                    <div key={dateStr} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:6,
+                      background:isToday?"#f0f9ff":T.bg,border:"1px solid "+(isToday?"#bae6fd":T.border)}}>
+                      <div style={{width:36,textAlign:"center",flexShrink:0}}>
+                        <div style={{fontSize:10,fontWeight:700,color:isToday?"#0ea5e9":T.text,fontFamily:"DM Mono,monospace"}}>{dayName}</div>
+                        {isToday&&<div style={{fontSize:8,color:"#0ea5e9",fontWeight:600}}>TODAY</div>}
+                      </div>
+                      <div style={{width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+                        background:sf.status==="GO"?"#dcfce7":sf.status==="CAUTION"?"#fef9c3":"#fee2e2",flexShrink:0}}>
+                        <span style={{fontSize:9,fontWeight:800,color:sf.status==="GO"?"#15803d":sf.status==="CAUTION"?"#a16207":"#b91c1c",fontFamily:"DM Mono,monospace"}}>{sf.status==="GO"?"GO":sf.status==="CAUTION"?"CAU":"NO"}</span>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                          <div style={{fontSize:11,fontFamily:"DM Mono,monospace"}}>
+                            <span style={{color:"#0ea5e9",fontWeight:700}}>{dispWMax}</span>
+                            <span style={{color:T.sub,fontSize:9}}> {wUnit} {wDirLabel}</span>
+                          </div>
+                          <div style={{fontSize:11,fontFamily:"DM Mono,monospace"}}>
+                            <span style={{color:"#0891b2",fontWeight:700}}>{dispWvMax}</span>
+                            <span style={{color:T.sub,fontSize:9}}> {hUnit}</span>
+                          </div>
+                          {swMax > 0.1 && (
+                            <div style={{fontSize:11,fontFamily:"DM Mono,monospace"}}>
+                              <span style={{color:"#6366f1",fontWeight:600}}>{dispSwMax}</span>
+                              <span style={{color:T.sub,fontSize:9}}> sw</span>
+                            </div>
+                          )}
+                          <div style={{fontSize:11,fontFamily:"DM Mono,monospace"}}>
+                            <span style={{color:T.text,fontWeight:600}}>{dispTMax}°</span>
+                            <span style={{color:T.sub,fontSize:9}}>/{dispTMin}°</span>
+                          </div>
+                          {rain > 1 && <div style={{fontSize:9,color:"#64748b",background:"#f1f5f9",padding:"1px 5px",borderRadius:3}}>{rain.toFixed(1)}mm</div>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </>}
         {(!data||data.err)&&!loading&&(
           <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"60%",color:T.sub,fontSize:12}}>
@@ -405,8 +603,8 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
         )}
       </div>
 
-      {/* RIGHT: map ~30% */}
-      <div style={{width:"30%",flexShrink:0,borderLeft:"1px solid "+T.border,overflow:"hidden"}}>
+      {/* RIGHT: map ~30% (bottom on mobile) */}
+      <div style={{width:isMobile?"100%":"30%",height:isMobile?300:undefined,flexShrink:0,borderLeft:isMobile?"none":"1px solid "+T.border,borderTop:isMobile?"1px solid "+T.border:"none",overflow:"hidden"}}>
         <SpotMap spot={spot} windDir={data&&!data.err?wdir:null} swellDir={data&&!data.err?swellDir:null} wind={data&&!data.err?wind:null} wave={data&&!data.err?wave:null} onSelectNearby={pick}/>
       </div>
     </div>
@@ -414,13 +612,35 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
 
   // ── HOME VIEW (no spot selected) ──
   return (
-    <div style={{display:"flex",height:"calc(100vh - 48px)",overflow:"hidden",fontFamily:"DM Sans,sans-serif"}}>
+    <div style={{display:"flex",flexDirection:isMobile?"column":"row",height:"calc(100vh - 48px)",overflow:"hidden",fontFamily:"DM Sans,sans-serif"}}>
       {/* Left: search + spot list */}
-      <div style={{width:280,flexShrink:0,borderRight:"1px solid "+T.border,overflowY:"auto",background:T.card}}>
+      <div style={{width:isMobile?"100%":280,flexShrink:0,maxHeight:isMobile?"50vh":undefined,borderRight:isMobile?"none":"1px solid "+T.border,borderBottom:isMobile?"1px solid "+T.border:"none",overflowY:"auto",background:T.card}}>
         <div style={{padding:"14px 14px 0"}}>
           <div style={{fontSize:11,fontWeight:800,letterSpacing:2,color:T.text,marginBottom:12,paddingBottom:10,borderBottom:"1px solid "+T.border}}>CONDITIONS</div>
           <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search spots…"
             style={{width:"100%",padding:"8px 10px",borderRadius:4,border:"1px solid "+T.border,background:T.bg,color:T.text,fontSize:13,boxSizing:"border-box",fontFamily:"DM Sans,sans-serif",marginBottom:14}}/>
+          {favs.length > 0 && !query && (
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:8,fontWeight:600}}>FAVORITES</div>
+              {S.filter(s => favs.includes(s.id)).map(s => {
+                const rc = RC[s.region] || "#6366f1";
+                return (
+                  <div key={s.id} onClick={() => pick(s)}
+                    style={{display:"flex",alignItems:"center",gap:8,padding:"8px 8px",borderRadius:4,marginBottom:2,cursor:"pointer",transition:"background .1s"}}
+                    onMouseEnter={e => e.currentTarget.style.background=T.hi}
+                    onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+                    <div style={{width:6,height:6,borderRadius:"50%",background:rc,flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:600,fontSize:13,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.name}</div>
+                      <div style={{fontSize:10,color:T.sub}}>{s.country}</div>
+                    </div>
+                    <button onClick={e=>{e.stopPropagation();toggleFav(s.id);}}
+                      style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#f59e0b",padding:"0 2px",lineHeight:1,flexShrink:0}}>★</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div style={{fontSize:9,color:T.sub,letterSpacing:2,marginBottom:8,fontWeight:600}}>
             {query?"RESULTS":geo===null?"DETECTING LOCATION…":geo==="denied"?"ALL SPOTS":"NEAREST SPOTS"}
           </div>
@@ -436,7 +656,10 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
                   <div style={{fontWeight:600,fontSize:13,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.name}</div>
                   <div style={{fontSize:10,color:T.sub}}>{s.country}{s.d?` · ${Math.round(s.d)} km`:""}</div>
                 </div>
-                <div style={{color:T.sub,fontSize:12}}>›</div>
+                <button onClick={e => { e.stopPropagation(); toggleFav(s.id); }}
+                  style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:favs.includes(s.id)?"#f59e0b":"#cbd5e1",padding:"0 2px",lineHeight:1,flexShrink:0}}>
+                  ★
+                </button>
               </div>
             );
           })}
@@ -444,7 +667,7 @@ export default function Dashboard({ T, dark, initialSpot, onClearInitial }) {
       </div>
 
       {/* Right: world map */}
-      <div style={{flex:1,overflow:"hidden"}}>
+      <div style={{flex:1,overflow:"hidden",minHeight:isMobile?300:undefined}}>
         <WorldMap spots={S} sport="surf" month={new Date().getMonth()} selectedId={null} onSelect={pick} dark={dark}/>
       </div>
     </div>

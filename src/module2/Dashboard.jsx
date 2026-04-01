@@ -90,10 +90,10 @@ function NightRow({ expanded, onToggle, sunriseISO, label }) {
   );
 }
 
-function HourlyTable({ wd, wm, sport, level, T }) {
+function HourlyTable({ wd, wm, sport, level, T, dayOffset=0 }) {
   const [nightExp, setNightExp] = useState({ pre:false, post:false });
   if (!wd?.hourly?.time) return null;
-  const sunriseISO = wd.daily?.sunrise?.[0], sunsetISO = wd.daily?.sunset?.[0];
+  const sunriseISO = wd.daily?.sunrise?.[dayOffset], sunsetISO = wd.daily?.sunset?.[dayOffset];
   if (!sunriseISO || !sunsetISO) return null;
 
   const sr = new Date(sunriseISO), ss = new Date(sunsetISO);
@@ -237,6 +237,7 @@ export default function Dashboard({ T, dark, isMobile, initialSpot, onClearIniti
   const [lastUpd, setLastUpd] = useState(null);
   const [imperial, setImperial] = useState(false);
   const [forecastTab, setForecastTab] = useState("today");
+  const [selectedDay, setSelectedDay] = useState(0);
   const [gearOpen, setGearOpen] = useState(false);
   const [favs, setFavs] = useState(() => {
     try { return JSON.parse(localStorage.getItem("waveiq_favs") || "[]"); }
@@ -253,7 +254,7 @@ export default function Dashboard({ T, dark, isMobile, initialSpot, onClearIniti
   }, []);
 
   const pick = useCallback(async s => {
-    setSpot(s); spotRef.current = s; setData(null); setLoading(true);
+    setSpot(s); spotRef.current = s; setData(null); setLoading(true); setSelectedDay(0);
     if (onClearInitial) onClearInitial();
     try {
       const [w,m] = await Promise.all([getWeather(s.lat,s.lng), getMarine(s.lat,s.lng)]);
@@ -527,9 +528,26 @@ export default function Dashboard({ T, dark, isMobile, initialSpot, onClearIniti
             ))}
           </div>
           {forecastTab === "today" && <>
-            <HourlyChart hourlyW={wd?.hourly} hourlyM={wm?.hourly} T={T}/>
-            <WeeklyChart dailyW={wd?.daily} dailyM={wm?.daily} T={T}/>
-            <HourlyTable wd={wd} wm={wm} sport={sport} level={level} T={T}/>
+            {/* Day selector row */}
+            <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:12,marginBottom:12,scrollbarWidth:"none"}}>
+              {Array.from({length:7},(_,i)=>{
+                const label = i===0?"TODAY":wd?.daily?.time?.[i]?new Date(wd.daily.time[i]).toLocaleDateString("en-US",{weekday:"short"}).toUpperCase():["MON","TUE","WED","THU","FRI","SAT","SUN"][(new Date().getDay()+i-1)%7];
+                const sel = selectedDay===i;
+                return (
+                  <button key={i} onClick={()=>setSelectedDay(i)}
+                    style={{padding:"4px 10px",borderRadius:4,fontSize:10,fontWeight:700,fontFamily:"DM Mono,monospace",cursor:"pointer",flexShrink:0,
+                      background:sel?"#0ea5e9":T.bg,color:sel?"white":T.sub,
+                      border:"1px solid "+(sel?"#0ea5e9":T.border),transition:"all .12s"}}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <HourlyChart hourlyW={wd?.hourly} hourlyM={wm?.hourly} T={T} dayOffset={selectedDay} dailyTimes={wd?.daily?.time}/>
+            <HourlyTable wd={wd} wm={wm} sport={sport} level={level} T={T} dayOffset={selectedDay}/>
+            <div style={{marginTop:20}}>
+              <WeeklyChart dailyW={wd?.daily} dailyM={wm?.daily} T={T}/>
+            </div>
           </>}
           {forecastTab === "week" && wd?.daily?.time && (
             <div>
@@ -556,7 +574,8 @@ export default function Dashboard({ T, dark, isMobile, initialSpot, onClearIniti
                   const dispTMax = imperial ? toF(tMax) : tMax;
                   const dispTMin = imperial ? toF(tMin) : tMin;
                   return (
-                    <div key={dateStr} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:6,
+                    <div key={dateStr} onClick={()=>{setSelectedDay(i);setForecastTab("today");}}
+                      style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:6,cursor:"pointer",
                       background:isToday?"#f0f9ff":T.bg,border:"1px solid "+(isToday?"#bae6fd":T.border)}}>
                       <div style={{width:36,textAlign:"center",flexShrink:0}}>
                         <div style={{fontSize:10,fontWeight:700,color:isToday?"#0ea5e9":T.text,fontFamily:"DM Mono,monospace"}}>{dayName}</div>
@@ -589,6 +608,7 @@ export default function Dashboard({ T, dark, isMobile, initialSpot, onClearIniti
                           {rain > 1 && <div style={{fontSize:9,color:"#64748b",background:"#f1f5f9",padding:"1px 5px",borderRadius:3}}>{rain.toFixed(1)}mm</div>}
                         </div>
                       </div>
+                      <div style={{fontSize:14,color:T.sub,flexShrink:0,marginLeft:4}}>›</div>
                     </div>
                   );
                 })}

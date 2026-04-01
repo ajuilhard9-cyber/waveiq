@@ -1,10 +1,17 @@
 const windColor = w => w>30?"#f43f5e":w>20?"#f97316":w>12?"#f59e0b":"#0ea5e9";
 
-export default function HourlyChart({ hourlyW, hourlyM, T }) {
+export default function HourlyChart({ hourlyW, hourlyM, T, dayOffset=0, dailyTimes }) {
   const now = new Date();
   const times = hourlyW?.time || [];
-  let si = times.findIndex(t => new Date(t) >= now);
-  if (si < 0) si = 0;
+  let si;
+  if (dayOffset > 0 && dailyTimes && dailyTimes[dayOffset]) {
+    const targetDate = dailyTimes[dayOffset].slice(0, 10);
+    si = times.findIndex(t => t.slice(0, 10) === targetDate);
+    if (si < 0) si = 0;
+  } else {
+    si = times.findIndex(t => new Date(t) >= now);
+    if (si < 0) si = 0;
+  }
   const N = 24;
 
   const winds = (hourlyW?.wind_speed_10m || []).slice(si, si+N);
@@ -50,7 +57,7 @@ export default function HourlyChart({ hourlyW, hourlyM, T }) {
             const show = i===0||hr%6===0;
             return (
               <div key={i} style={{flex:1,textAlign:"center",fontSize:7,color:i===0?"#0ea5e9":T.sub,fontFamily:"DM Mono,monospace",fontWeight:i===0?700:400,visibility:show?"visible":"hidden"}}>
-                {i===0?"NOW":hr+"h"}
+                {i===0&&dayOffset===0?"NOW":hr+"h"}
               </div>
             );
           })}

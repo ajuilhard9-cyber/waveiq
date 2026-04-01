@@ -39,6 +39,9 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
   const [popupCluster, setPopupCluster] = useState(null);
   const popupRef = useRef(null);
   const mapRef = useRef(null);
+  const canvasRef = useRef(null);
+  const animRef = useRef(null);
+  const particlesRef = useRef([]);
 
   const bg   = dark ? "#0b1120" : "#c2dff5";
   const land = dark ? "#162035" : "#d4e8cc";
@@ -56,8 +59,89 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
     return () => document.removeEventListener('mousedown', handler);
   }, [popupCluster]);
 
+  useEffect(() => {
+    if (mapMode !== "particles") {
+      cancelAnimationFrame(animRef.current);
+      if (canvasRef.current?.parentNode) canvasRef.current.parentNode.removeChild(canvasRef.current);
+      canvasRef.current = null;
+      particlesRef.current = [];
+      return;
+    }
+
+    const container = mapRef.current;
+    if (!container) return;
+
+    let canvas = container.querySelector('#waveiq-wm-particles');
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvas.id = 'waveiq-wm-particles';
+      canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;';
+      container.appendChild(canvas);
+    }
+    canvasRef.current = canvas;
+
+    const W = container.offsetWidth || 800;
+    const H = container.offsetHeight || 500;
+    canvas.width = W;
+    canvas.height = H;
+
+    const COUNT = 500;
+    const MAX_AGE = 100;
+
+    const avgScore = spots.reduce((s,sp) => s + (sp.wind?.[month] ?? sp.seasonal?.wind?.[month] ?? 3), 0) / spots.length;
+    const windKts = avgScore * 6;
+    const dirDeg = 260;
+    const dirRad = dirDeg * Math.PI / 180;
+
+    const vx = Math.sin(dirRad) * windKts * 0.018;
+    const vy = -Math.cos(dirRad) * windKts * 0.018;
+
+    const col = windKts > 25 ? '#f97316' : windKts > 15 ? '#f59e0b' : windKts > 8 ? '#22c55e' : '#93c5fd';
+
+    if (!particlesRef.current.length) {
+      particlesRef.current = Array.from({length: COUNT}, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        age: Math.floor(Math.random() * MAX_AGE),
+      }));
+    }
+
+    const ctx = canvas.getContext('2d');
+
+    const animate = () => {
+      ctx.clearRect(0, 0, W, H);
+      const pts = particlesRef.current;
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i];
+        p.age++;
+        if (p.age >= MAX_AGE || p.x < -5 || p.x > W + 5 || p.y < -5 || p.y > H + 5) {
+          p.x = Math.random() * W;
+          p.y = Math.random() * H;
+          p.age = 0;
+        }
+        p.x += vx;
+        p.y += vy;
+        const alpha = Math.sin(Math.PI * p.age / MAX_AGE) * 0.7;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = col;
+        ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+      }
+      ctx.globalAlpha = 1;
+      animRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      cancelAnimationFrame(animRef.current);
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      canvasRef.current = null;
+      particlesRef.current = [];
+    };
+  }, [mapMode, month, spots]); // eslint-disable-line
+
   const getSpotColor = useCallback((s) => {
-    if (mapMode === "wind") return WIND_COLORS[s.wind?.[month] ?? s.seasonal?.wind?.[month]] || '#bfdbfe';
+    if (mapMode === "wind" || mapMode === "particles") return WIND_COLORS[s.wind?.[month] ?? s.seasonal?.wind?.[month]] || '#bfdbfe';
     if (mapMode === "wave") return WAVE_COLORS[s.swell?.[month] ?? s.seasonal?.swell?.[month]] || '#d1fae5';
     return gradeColor(gradeLabel(gradeScore(s, sport, month)));
   }, [mapMode, month, sport]);
@@ -70,6 +154,7 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
   }, [mapMode, month, sport]);
 
   const showHalo = (s) => {
+    if (mapMode === "particles") return false;
     if (mapMode === "wind" || mapMode === "wave") return true;
     return showHeatmap;
   };
@@ -174,14 +259,15 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
 
       {/* Map mode toggles — top right row 1 */}
       <div style={{position:"absolute",top:12,right:12,display:"flex",gap:4}}>
-        {["grade","wind","wave"].map(mode => {
+        {["grade","wind","wave","particles"].map(mode => {
+          const labels = {grade:"Grade",wind:"Wind",wave:"Wave",particles:"Flow"};
           const active = mapMode === mode;
           return (
             <button key={mode} onClick={() => setMapMode(mode)}
               style={{height:28,padding:"0 10px",borderRadius:4,border:"1px solid "+(active?"#0ea5e9":"#cbd5e1"),
                 background:active?"#0ea5e9":"white",color:active?"white":"#64748b",fontSize:10,fontWeight:600,cursor:"pointer",
                 fontFamily:"DM Sans,sans-serif",boxShadow:"0 1px 4px rgba(0,0,0,0.12)",transition:"all .15s",textTransform:"capitalize"}}>
-              {mode === "grade" ? "Grade" : mode === "wind" ? "Wind" : "Wave"}
+              {labels[mode]}
             </button>
           );
         })}
@@ -211,7 +297,12 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
 
       {/* Legend — bottom right */}
       <div style={{position:"absolute",bottom:16,right:16,display:"flex",gap:8,background:dark?"rgba(10,15,28,0.85)":"rgba(255,255,255,0.9)",backdropFilter:"blur(8px)",padding:"8px 12px",borderRadius:6,border:`1px solid ${bord}`}}>
-        {mapMode === "grade" ? (
+        {mapMode === "particles" ? (
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:"#93c5fd"}}/>
+            <span style={{fontSize:10,color:dark?"#94a3b8":"#64748b",fontFamily:"DM Mono,monospace",fontWeight:600}}>Wind Flow</span>
+          </div>
+        ) : mapMode === "grade" ? (
           [["A","#22c55e"],["B","#6366f1"],["C","#f59e0b"],["D","#f97316"],["F","#f43f5e"]].map(([g,c])=>(
             <div key={g} style={{display:"flex",alignItems:"center",gap:4}}>
               <div style={{width:8,height:8,borderRadius:"50%",background:c}}/>

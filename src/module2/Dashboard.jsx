@@ -625,7 +625,7 @@ export default function Dashboard({ T, dark, isMobile, initialSpot, onClearIniti
 
       {/* RIGHT: map ~30% (bottom on mobile) */}
       <div style={{width:isMobile?"100%":"30%",height:isMobile?300:undefined,flexShrink:0,borderLeft:isMobile?"none":"1px solid "+T.border,borderTop:isMobile?"1px solid "+T.border:"none",overflow:"hidden"}}>
-        <SpotMap spot={spot} windDir={data&&!data.err?wdir:null} swellDir={data&&!data.err?swellDir:null} wind={data&&!data.err?wind:null} wave={data&&!data.err?wave:null} onSelectNearby={pick}/>
+        <SpotMap spot={spot} windDir={data&&!data.err?wdir:null} swellDir={data&&!data.err?swellDir:null} wind={data&&!data.err?wind:null} wave={data&&!data.err?wave:null} hourlyW={data&&!data.err?wd?.hourly:null} hourlyM={data&&!data.err?wm?.hourly:null} onSelectNearby={pick}/>
       </div>
     </div>
   );

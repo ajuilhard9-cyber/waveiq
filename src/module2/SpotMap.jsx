@@ -7,21 +7,21 @@ import { RC } from '../shared/theme';
 
 // ── Color ramps ─────────────────────────────────────────────────────────────
 function windRampColor(kts) {
-  if (kts <= 0)  return [147, 197, 253, 0.08];
-  if (kts <= 8)  return [56,  189, 248, 0.18];
-  if (kts <= 15) return [34,  197, 94,  0.25];
-  if (kts <= 22) return [234, 179, 8,   0.30];
-  if (kts <= 30) return [249, 115, 22,  0.38];
-  return              [239, 68,  68,  0.45];
+  if (kts <= 0)  return [147, 197, 253, 0.12];
+  if (kts <= 8)  return [56,  189, 248, 0.28];
+  if (kts <= 15) return [34,  197, 94,  0.38];
+  if (kts <= 22) return [234, 179, 8,   0.45];
+  if (kts <= 30) return [249, 115, 22,  0.55];
+  return              [239, 68,  68,  0.65];
 }
 
 function waveRampColor(m) {
-  if (m <= 0)   return [186, 230, 253, 0.08];
-  if (m <= 0.5) return [125, 211, 252, 0.18];
-  if (m <= 1.0) return [56,  189, 248, 0.25];
-  if (m <= 1.5) return [14,  165, 233, 0.32];
-  if (m <= 2.5) return [30,  58,  138, 0.38];
-  return              [15,  23,  42,  0.50];
+  if (m <= 0)   return [186, 230, 253, 0.12];
+  if (m <= 0.5) return [125, 211, 252, 0.28];
+  if (m <= 1.0) return [56,  189, 248, 0.38];
+  if (m <= 1.5) return [14,  165, 233, 0.48];
+  if (m <= 2.5) return [30,  58,  138, 0.55];
+  return              [99,  179, 237, 0.65];
 }
 
 // ── HeatmapCanvas ──────────────────────────────────────────────────────────
@@ -126,8 +126,8 @@ function WindArrows({ windDir, wind, mode }) {
         const len = 10 + Math.min(spd, 30) * 0.4;
         arrows.push(
           `<g transform="translate(${x + jx},${y + jy}) rotate(${windDir})">` +
-          `<line x1="0" y1="${-len}" x2="0" y2="${len * 0.5}" stroke="#1e3a8a" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>` +
-          `<polygon points="0,${-len - 5} ${-4},${-len + 4} ${4},${-len + 4}" fill="#1e3a8a" opacity="0.85"/>` +
+          `<line x1="0" y1="${-len}" x2="0" y2="${len * 0.5}" stroke="#7dd3fc" stroke-width="1.5" stroke-linecap="round" opacity="0.9"/>` +
+          `<polygon points="0,${-len - 5} ${-4},${-len + 4} ${4},${-len + 4}" fill="#7dd3fc" opacity="0.95"/>` +
           `</g>`
         );
       }
@@ -179,8 +179,8 @@ function ParticleCanvas({ windDir, wind, wave, mode }) {
     canvasRef.current = canvas;
 
     const W = size.x, H = size.y;
-    const COUNT = 350;
-    const MAX_AGE = 80;
+    const COUNT = 600;
+    const MAX_AGE = 90;
 
     const speedColor = (spd) => {
       if (spd > 30) return '#ef4444';
@@ -216,21 +216,24 @@ function ParticleCanvas({ windDir, wind, wave, mode }) {
 
     const animate = () => {
       ctx.clearRect(0, 0, W, H);
+      ctx.lineCap = 'round';
       const pts = particlesRef.current;
       for (let i = 0; i < pts.length; i++) {
         const p = pts[i];
+        const ox = p.x, oy = p.y;
         p.age++;
-        if (p.age >= MAX_AGE || p.x < 0 || p.x > W || p.y < 0 || p.y > H) {
-          p.x = Math.random() * W;
-          p.y = Math.random() * H;
-          p.age = 0;
+        if (p.age >= MAX_AGE || p.x < -10 || p.x > W + 10 || p.y < -10 || p.y > H + 10) {
+          p.x = Math.random() * W; p.y = Math.random() * H; p.age = 0; continue;
         }
-        p.x += vx;
-        p.y += vy;
-        const alpha = Math.sin(Math.PI * p.age / MAX_AGE) * 0.85;
+        p.x += vx; p.y += vy;
+        const alpha = Math.sin(Math.PI * p.age / MAX_AGE) * 0.92;
         ctx.globalAlpha = alpha;
-        ctx.fillStyle = col;
-        ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(ox, oy);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
       }
       ctx.globalAlpha = 1;
       animRef.current = requestAnimationFrame(animate);
@@ -335,7 +338,7 @@ function WindBarbs({ windDir, wind, mode }) {
     const rows = Math.ceil(size.y / SPACING) + 1;
     const dirRad = (windDir || 0) * Math.PI / 180;
     const spd = wind;
-    const col = spd > 30 ? '#ef4444' : spd > 20 ? '#f97316' : spd > 12 ? '#f59e0b' : '#60a5fa';
+    const col = spd > 30 ? '#fca5a5' : spd > 20 ? '#fdba74' : spd > 12 ? '#fde68a' : '#7dd3fc';
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -480,8 +483,8 @@ export default function SpotMap({ spot, windDir, swellDir, wind, wave, hourlyW, 
         zoomControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
         <HeatmapCanvas windDir={liveWindDir} wind={liveWind} wave={liveWave} swellDir={swellDir} mode={mapMode} spot={spot} />
         <VizLayer vizMode={vizMode} mapMode={mapMode} liveWindDir={liveWindDir} liveWind={liveWind} liveWave={liveWave}/>

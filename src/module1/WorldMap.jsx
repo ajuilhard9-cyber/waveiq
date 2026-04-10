@@ -110,21 +110,24 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
 
     const animate = () => {
       ctx.clearRect(0, 0, W, H);
+      ctx.lineCap = 'round';
       const pts = particlesRef.current;
       for (let i = 0; i < pts.length; i++) {
         const p = pts[i];
+        const ox = p.x, oy = p.y;
         p.age++;
-        if (p.age >= MAX_AGE || p.x < -5 || p.x > W + 5 || p.y < -5 || p.y > H + 5) {
-          p.x = Math.random() * W;
-          p.y = Math.random() * H;
-          p.age = 0;
+        if (p.age >= MAX_AGE || p.x < -10 || p.x > W + 10 || p.y < -10 || p.y > H + 10) {
+          p.x = Math.random() * W; p.y = Math.random() * H; p.age = 0; continue;
         }
-        p.x += vx;
-        p.y += vy;
-        const alpha = Math.sin(Math.PI * p.age / MAX_AGE) * 0.7;
+        p.x += vx; p.y += vy;
+        const alpha = Math.sin(Math.PI * p.age / MAX_AGE) * 0.85;
         ctx.globalAlpha = alpha;
-        ctx.fillStyle = col;
-        ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(ox, oy);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
       }
       ctx.globalAlpha = 1;
       animRef.current = requestAnimationFrame(animate);

@@ -9,6 +9,25 @@ const HEATMAP_COLORS = {A:'#22c55e',B:'#84cc16',C:'#f59e0b',D:'#f97316',F:'#ef44
 const WIND_COLORS = {1:'#bfdbfe',2:'#bfdbfe',3:'#60a5fa',4:'#2563eb',5:'#1e3a8a'};
 const WAVE_COLORS = {1:'#d1fae5',2:'#6ee7b7',3:'#10b981',4:'#047857',5:'#064e3b'};
 
+function drawBarb(ctx, cx, cy, dirRad, spd, col) {
+  const L = 24;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(dirRad);
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.3; ctx.globalAlpha = 0.82;
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-L); ctx.stroke();
+  let rem = Math.round(spd/5)*5, y = -L;
+  while (rem >= 50) {
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(10,y+4); ctx.lineTo(0,y+8); ctx.closePath(); ctx.fill();
+    y += 9; rem -= 50;
+  }
+  while (rem >= 10) {
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(10,y-4); ctx.stroke();
+    y += 5; rem -= 10;
+  }
+  if (rem >= 5) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(5,y-2); ctx.stroke(); }
+  ctx.beginPath(); ctx.arc(0,0,2.5,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
 function getClusterRadius(zoom) {
   if (zoom < 2) return 12;
   if (zoom < 4) return 4;
@@ -36,6 +55,7 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
   const [center, setCenter] = useState([10, 10]);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [mapMode, setMapMode] = useState("grade");
+  const [vizMode, setVizMode] = useState("flow");
   const [popupCluster, setPopupCluster] = useState(null);
   const popupRef = useRef(null);
   const mapRef = useRef(null);
@@ -43,9 +63,9 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
   const animRef = useRef(null);
   const particlesRef = useRef([]);
 
-  const bg   = dark ? "#0b1120" : "#c2dff5";
-  const land = dark ? "#162035" : "#d4e8cc";
-  const bord = dark ? "#1e2d45" : "#b0ccb8";
+  const bg   = dark ? "#04111f" : "#0e6fa0";
+  const land = dark ? "#1c3320" : "#d4e6b0";
+  const bord = dark ? "#2d5030" : "#5a8a50";
   const showLabels = zoom > 2;
   const clusters = clusterSpots(spots, zoom);
 
@@ -60,91 +80,71 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
   }, [popupCluster]);
 
   useEffect(() => {
-    if (mapMode !== "particles") {
-      cancelAnimationFrame(animRef.current);
-      if (canvasRef.current?.parentNode) canvasRef.current.parentNode.removeChild(canvasRef.current);
-      canvasRef.current = null;
-      particlesRef.current = [];
-      return;
-    }
+    cancelAnimationFrame(animRef.current);
+    if (canvasRef.current?.parentNode) canvasRef.current.parentNode.removeChild(canvasRef.current);
+    canvasRef.current = null; particlesRef.current = [];
 
+    if (mapMode === "grade") return;
     const container = mapRef.current;
     if (!container) return;
 
-    let canvas = container.querySelector('#waveiq-wm-particles');
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      canvas.id = 'waveiq-wm-particles';
-      canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;';
-      container.appendChild(canvas);
-    }
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;';
+    container.appendChild(canvas);
     canvasRef.current = canvas;
-
-    const W = container.offsetWidth || 800;
-    const H = container.offsetHeight || 500;
-    canvas.width = W;
-    canvas.height = H;
-
-    const COUNT = 500;
-    const MAX_AGE = 100;
+    const W = container.offsetWidth || 800, H = container.offsetHeight || 500;
+    canvas.width = W; canvas.height = H;
 
     const avgScore = spots.reduce((s,sp) => s + (sp.wind?.[month] ?? sp.seasonal?.wind?.[month] ?? 3), 0) / spots.length;
     const windKts = avgScore * 6;
-    const dirDeg = 260;
-    const dirRad = dirDeg * Math.PI / 180;
-
-    const vx = Math.sin(dirRad) * windKts * 0.018;
-    const vy = -Math.cos(dirRad) * windKts * 0.018;
-
+    const dirRad = 260 * Math.PI / 180;
     const col = windKts > 25 ? '#f97316' : windKts > 15 ? '#f59e0b' : windKts > 8 ? '#22c55e' : '#93c5fd';
-
-    if (!particlesRef.current.length) {
-      particlesRef.current = Array.from({length: COUNT}, () => ({
-        x: Math.random() * W,
-        y: Math.random() * H,
-        age: Math.floor(Math.random() * MAX_AGE),
-      }));
-    }
-
     const ctx = canvas.getContext('2d');
 
-    const animate = () => {
-      ctx.clearRect(0, 0, W, H);
-      ctx.lineCap = 'round';
-      const pts = particlesRef.current;
-      for (let i = 0; i < pts.length; i++) {
-        const p = pts[i];
-        const ox = p.x, oy = p.y;
-        p.age++;
-        if (p.age >= MAX_AGE || p.x < -10 || p.x > W + 10 || p.y < -10 || p.y > H + 10) {
-          p.x = Math.random() * W; p.y = Math.random() * H; p.age = 0; continue;
+    if (vizMode === "flow") {
+      const COUNT = 500, MAX_AGE = 100;
+      const vx = Math.sin(dirRad) * windKts * 0.018;
+      const vy = -Math.cos(dirRad) * windKts * 0.018;
+      particlesRef.current = Array.from({length:COUNT}, () => ({
+        x: Math.random()*W, y: Math.random()*H, age: Math.floor(Math.random()*MAX_AGE)
+      }));
+      const animate = () => {
+        ctx.clearRect(0,0,W,H); ctx.lineCap='round';
+        for (const p of particlesRef.current) {
+          const ox=p.x, oy=p.y; p.age++;
+          if (p.age>=MAX_AGE||p.x<-10||p.x>W+10||p.y<-10||p.y>H+10) { p.x=Math.random()*W; p.y=Math.random()*H; p.age=0; continue; }
+          p.x+=vx; p.y+=vy;
+          ctx.globalAlpha = Math.sin(Math.PI*p.age/MAX_AGE)*0.85;
+          ctx.strokeStyle=col; ctx.lineWidth=1.5;
+          ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(p.x,p.y); ctx.stroke();
         }
-        p.x += vx; p.y += vy;
-        const alpha = Math.sin(Math.PI * p.age / MAX_AGE) * 0.85;
-        ctx.globalAlpha = alpha;
-        ctx.strokeStyle = col;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(ox, oy);
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
+        ctx.globalAlpha=1; animRef.current=requestAnimationFrame(animate);
+      };
+      animate();
+    } else if (vizMode === "arrows") {
+      const S=60, cols=Math.ceil(W/S)+1, rows=Math.ceil(H/S)+1;
+      const len = 10 + Math.min(windKts,30)*0.4;
+      ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=1.5; ctx.globalAlpha=0.85; ctx.lineCap='round';
+      for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
+        ctx.save(); ctx.translate((c+0.5)*S,(r+0.5)*S); ctx.rotate(dirRad);
+        ctx.beginPath(); ctx.moveTo(0,len); ctx.lineTo(0,-len); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,-len); ctx.lineTo(-4,-len+8); ctx.lineTo(4,-len+8); ctx.closePath(); ctx.fill();
+        ctx.restore();
       }
-      ctx.globalAlpha = 1;
-      animRef.current = requestAnimationFrame(animate);
-    };
-
-    animate();
+    } else if (vizMode === "barbs") {
+      const S=70, cols=Math.ceil(W/S)+1, rows=Math.ceil(H/S)+1;
+      for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) drawBarb(ctx,(c+0.5)*S,(r+0.5)*S,dirRad,windKts,col);
+    }
 
     return () => {
       cancelAnimationFrame(animRef.current);
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
-      canvasRef.current = null;
-      particlesRef.current = [];
+      canvasRef.current = null; particlesRef.current = [];
     };
-  }, [mapMode, month, spots]); // eslint-disable-line
+  }, [mapMode, vizMode, month, spots]); // eslint-disable-line
 
   const getSpotColor = useCallback((s) => {
-    if (mapMode === "wind" || mapMode === "particles") return WIND_COLORS[s.wind?.[month] ?? s.seasonal?.wind?.[month]] || '#bfdbfe';
+    if (mapMode === "wind") return WIND_COLORS[s.wind?.[month] ?? s.seasonal?.wind?.[month]] || '#bfdbfe';
     if (mapMode === "wave") return WAVE_COLORS[s.swell?.[month] ?? s.seasonal?.swell?.[month]] || '#d1fae5';
     return gradeColor(gradeLabel(gradeScore(s, sport, month)));
   }, [mapMode, month, sport]);
@@ -157,7 +157,6 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
   }, [mapMode, month, sport]);
 
   const showHalo = (s) => {
-    if (mapMode === "particles") return false;
     if (mapMode === "wind" || mapMode === "wave") return true;
     return showHeatmap;
   };
@@ -238,9 +237,9 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
             {({geographies}) => geographies.map(geo => (
               <Geography key={geo.rsmKey} geography={geo}
                 style={{
-                  default: {fill:land, stroke:bord, strokeWidth:0.4, outline:"none"},
-                  hover:   {fill:land, outline:"none"},
-                  pressed: {fill:land, outline:"none"},
+                  default: {fill:land, stroke:bord, strokeWidth:0.8, outline:"none"},
+                  hover:   {fill:land, stroke:bord, strokeWidth:0.8, outline:"none"},
+                  pressed: {fill:land, stroke:bord, strokeWidth:0.8, outline:"none"},
                 }}
               />
             ))}
@@ -262,26 +261,41 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
 
       {/* Map mode toggles — top right row 1 */}
       <div style={{position:"absolute",top:12,right:12,display:"flex",gap:4}}>
-        {["grade","wind","wave","particles"].map(mode => {
-          const labels = {grade:"Grade",wind:"Wind",wave:"Wave",particles:"Flow"};
+        {[["grade","Grade"],["wind","Wind"],["wave","Wave"]].map(([mode,label]) => {
           const active = mapMode === mode;
           return (
             <button key={mode} onClick={() => setMapMode(mode)}
-              style={{height:28,padding:"0 10px",borderRadius:4,border:"1px solid "+(active?"#0ea5e9":"#cbd5e1"),
-                background:active?"#0ea5e9":"white",color:active?"white":"#64748b",fontSize:10,fontWeight:600,cursor:"pointer",
-                fontFamily:"DM Sans,sans-serif",boxShadow:"0 1px 4px rgba(0,0,0,0.12)",transition:"all .15s",textTransform:"capitalize"}}>
-              {labels[mode]}
+              style={{height:28,padding:"0 10px",borderRadius:4,border:"1px solid "+(active?"#0ea5e9":"#334155"),
+                background:active?"#0ea5e9":"rgba(15,23,42,0.8)",color:active?"white":"#94a3b8",fontSize:10,fontWeight:600,cursor:"pointer",
+                fontFamily:"DM Sans,sans-serif",boxShadow:"0 1px 4px rgba(0,0,0,0.2)",transition:"all .15s"}}>
+              {label}
             </button>
           );
         })}
       </div>
 
-      {/* Heatmap toggle — top right row 2, only in grade mode */}
+      {/* Viz sub-mode toggles — row 2 (wind/wave only) */}
+      {mapMode !== "grade" && (
+        <div style={{position:"absolute",top:48,right:12,display:"flex",gap:3}}>
+          {[["arrows","Arrows"],["flow","Flow"],["barbs","Barbs"]].map(([m,l]) => (
+            <button key={m} onClick={() => setVizMode(m)}
+              style={{height:24,padding:"0 8px",borderRadius:3,
+                border:"1px solid "+(vizMode===m?"#0ea5e9":"#334155"),
+                background:vizMode===m?"#0ea5e9":"rgba(15,23,42,0.8)",
+                color:vizMode===m?"white":"#94a3b8",fontSize:9,fontWeight:600,cursor:"pointer",
+                fontFamily:"DM Sans,sans-serif",transition:"all .12s"}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Heatmap toggle — row 2 in grade mode */}
       {mapMode === "grade" && (
         <button onClick={() => setShowHeatmap(h => !h)}
-          style={{position:"absolute",top:48,right:12,padding:"5px 12px",borderRadius:4,border:"1px solid "+(showHeatmap?"#0ea5e9":"#cbd5e1"),
-            background:showHeatmap?"#0ea5e9":"white",color:showHeatmap?"white":"#64748b",fontSize:11,fontWeight:600,cursor:"pointer",
-            fontFamily:"DM Sans,sans-serif",boxShadow:"0 1px 4px rgba(0,0,0,0.12)",transition:"all .15s"}}>
+          style={{position:"absolute",top:48,right:12,padding:"5px 12px",borderRadius:4,border:"1px solid "+(showHeatmap?"#0ea5e9":"#334155"),
+            background:showHeatmap?"#0ea5e9":"rgba(15,23,42,0.8)",color:showHeatmap?"white":"#94a3b8",fontSize:11,fontWeight:600,cursor:"pointer",
+            fontFamily:"DM Sans,sans-serif",boxShadow:"0 1px 4px rgba(0,0,0,0.2)",transition:"all .15s"}}>
           Heatmap
         </button>
       )}
@@ -300,12 +314,7 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
 
       {/* Legend — bottom right */}
       <div style={{position:"absolute",bottom:16,right:16,display:"flex",gap:8,background:dark?"rgba(10,15,28,0.85)":"rgba(255,255,255,0.9)",backdropFilter:"blur(8px)",padding:"8px 12px",borderRadius:6,border:`1px solid ${bord}`}}>
-        {mapMode === "particles" ? (
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <div style={{width:8,height:8,borderRadius:"50%",background:"#93c5fd"}}/>
-            <span style={{fontSize:10,color:dark?"#94a3b8":"#64748b",fontFamily:"DM Mono,monospace",fontWeight:600}}>Wind Flow</span>
-          </div>
-        ) : mapMode === "grade" ? (
+        {mapMode === "grade" ? (
           [["A","#22c55e"],["B","#6366f1"],["C","#f59e0b"],["D","#f97316"],["F","#f43f5e"]].map(([g,c])=>(
             <div key={g} style={{display:"flex",alignItems:"center",gap:4}}>
               <div style={{width:8,height:8,borderRadius:"50%",background:c}}/>

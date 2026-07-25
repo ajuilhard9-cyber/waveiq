@@ -50,7 +50,7 @@ function clusterSpots(spots, zoom) {
   return clusters;
 }
 
-export default function WorldMap({ spots, sport, month, selectedId, onSelect, dark, T }) {
+export default function WorldMap({ spots, sport, month, selectedId, onSelect, T }) {
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState([10, 10]);
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -63,9 +63,9 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
   const animRef = useRef(null);
   const particlesRef = useRef([]);
 
-  const bg   = dark ? "#04111f" : "#0e6fa0";
-  const land = dark ? "#1c3320" : "#d4e6b0";
-  const bord = dark ? "#2d5030" : "#5a8a50";
+  const bg   = "#0e6fa0";
+  const land = "#d4e6b0";
+  const bord = "#5a8a50";
   const showLabels = zoom > 2;
   const clusters = clusterSpots(spots, zoom);
 
@@ -179,9 +179,9 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
   };
 
   const renderClusterDot = (cl) => {
-    if (zoom < 2) return <circle r={8 + cl.spots.length * 1.5} fill="#94a3b8" stroke={dark?"#0b1120":"white"} strokeWidth={1.5} style={{cursor:"pointer",opacity:0.85}} />;
-    if (zoom < 4) return <circle r={7 + cl.spots.length} fill="#94a3b8" stroke={dark?"#0b1120":"white"} strokeWidth={1.5} style={{cursor:"pointer",opacity:0.85}} />;
-    return <circle r={6 + cl.spots.length * 0.5} fill="#94a3b8" stroke={dark?"#0b1120":"white"} strokeWidth={1.5} style={{cursor:"pointer",opacity:0.85}} />;
+    if (zoom < 2) return <circle r={8 + cl.spots.length * 1.5} fill="#94a3b8" stroke="white" strokeWidth={1.5} style={{cursor:"pointer",opacity:0.85}} />;
+    if (zoom < 4) return <circle r={7 + cl.spots.length} fill="#94a3b8" stroke="white" strokeWidth={1.5} style={{cursor:"pointer",opacity:0.85}} />;
+    return <circle r={6 + cl.spots.length * 0.5} fill="#94a3b8" stroke="white" strokeWidth={1.5} style={{cursor:"pointer",opacity:0.85}} />;
   };
 
   const renderClusterText = (cl) => {
@@ -206,7 +206,7 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
           <circle r={50} fill={hc} opacity={0.18} style={{pointerEvents:"none"}}/>
           <circle r={22} fill={hc} opacity={0.28} style={{pointerEvents:"none"}}/>
         </>}
-        <circle r={sel?10:6} fill={col} stroke={dark?"#0b1120":"white"} strokeWidth={sel?2.5:1.5}
+        <circle r={sel?10:6} fill={col} stroke="white" strokeWidth={sel?2.5:1.5}
           style={{cursor:"pointer", filter:sel?`drop-shadow(0 0 8px ${col})`:"none", transition:"r .15s"}} />
         {mapMode === "grade" && (
           <text textAnchor="middle" y={sel?-14:-10}
@@ -216,8 +216,7 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
         )}
         {(sel || showLabels) && (
           <text textAnchor="middle" y={22}
-            style={{fontSize:9, fontWeight:600, fill:sel?"white":(dark?"#94a3b8":"#475569"), fontFamily:"DM Sans,sans-serif", pointerEvents:"none",
-              textShadow:dark?"0 1px 4px #000":"none"}}>
+            style={{fontSize:9, fontWeight:600, fill:sel?"white":"#475569", fontFamily:"DM Sans,sans-serif", pointerEvents:"none"}}>
             {s.name}
           </text>
         )}
@@ -313,26 +312,26 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, da
       </div>
 
       {/* Legend — bottom right */}
-      <div style={{position:"absolute",bottom:16,right:16,display:"flex",gap:8,background:dark?"rgba(10,15,28,0.85)":"rgba(255,255,255,0.9)",backdropFilter:"blur(8px)",padding:"8px 12px",borderRadius:6,border:`1px solid ${bord}`}}>
+      <div style={{position:"absolute",bottom:16,right:16,display:"flex",gap:8,background:"rgba(255,255,255,0.9)",backdropFilter:"blur(8px)",padding:"8px 12px",borderRadius:6,border:`1px solid ${bord}`}}>
         {mapMode === "grade" ? (
           [["A","#22c55e"],["B","#6366f1"],["C","#f59e0b"],["D","#f97316"],["F","#f43f5e"]].map(([g,c])=>(
             <div key={g} style={{display:"flex",alignItems:"center",gap:4}}>
               <div style={{width:8,height:8,borderRadius:"50%",background:c}}/>
-              <span style={{fontSize:10,color:dark?"#94a3b8":"#64748b",fontFamily:"DM Mono,monospace",fontWeight:600}}>{g}</span>
+              <span style={{fontSize:10,color:"#64748b",fontFamily:"DM Mono,monospace",fontWeight:600}}>{g}</span>
             </div>
           ))
         ) : mapMode === "wind" ? (
           [["Low","#bfdbfe"],["Med","#60a5fa"],["High","#1e3a8a"]].map(([v,c])=>(
             <div key={v} style={{display:"flex",alignItems:"center",gap:4}}>
               <div style={{width:8,height:8,borderRadius:"50%",background:c}}/>
-              <span style={{fontSize:10,color:dark?"#94a3b8":"#64748b",fontFamily:"DM Mono,monospace",fontWeight:600}}>{v}</span>
+              <span style={{fontSize:10,color:"#64748b",fontFamily:"DM Mono,monospace",fontWeight:600}}>{v}</span>
             </div>
           ))
         ) : (
           [["Low","#d1fae5"],["Med","#10b981"],["High","#064e3b"]].map(([v,c])=>(
             <div key={v} style={{display:"flex",alignItems:"center",gap:4}}>
               <div style={{width:8,height:8,borderRadius:"50%",background:c}}/>
-              <span style={{fontSize:10,color:dark?"#94a3b8":"#64748b",fontFamily:"DM Mono,monospace",fontWeight:600}}>{v}</span>
+              <span style={{fontSize:10,color:"#64748b",fontFamily:"DM Mono,monospace",fontWeight:600}}>{v}</span>
             </div>
           ))
         )}

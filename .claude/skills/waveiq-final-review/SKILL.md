@@ -13,12 +13,12 @@ Pull from `git diff`/`git log` since the session started (or since the last comm
 **2. Standards check**
 Sanity-check the changes against:
 - `waveiq-code-review` concerns (bugs, React rules, inline-styles-only, knots/metres, no unapproved deps)
-- `waveiq-visual-ideas` design system (fonts, accent color, light+dark theme tokens)
+- `waveiq-visual-ideas` design system (fonts, accent color, light-only theme tokens)
 - Whether deploy is in a safe state (`waveiq-deploy-ops` pre-push checklist)
 Don't re-run a full review from scratch if one already happened this session — just confirm nothing contradicts it.
 
 **3. Stale-doc check**
-Compare `CLAUDE.md` and `.claude/agents/*.md` against what the code actually does. This project has drifted before — e.g. `ui-designer.md` and `qa-agent.md` still say "light mode only, no dark mode" while `src/shared/theme.js` implements `makeTheme(dark)` with a working dark mode. If you spot a mismatch like this, name it specifically (file + what's wrong) rather than a vague "docs may be outdated."
+Compare `CLAUDE.md` and `.claude/agents/*.md` against what the code actually does. This project has drifted before — e.g. agent docs saying "light mode only" while the code had shipped a working dark mode (fixed 2026-07-26 by removing dark mode from the code instead, so light-only is now accurate again). If you spot a mismatch like this, name it specifically (file + what's wrong) rather than a vague "docs may be outdated."
 
 **4. What could be done next**
 Cross-reference the "Future roadmap" section of CLAUDE.md and anything the session surfaced but didn't finish (a TODO, a deferred edge case, an idea mentioned and dropped). Keep it concrete — name the feature and which agent/skill would own it, not just "more features."

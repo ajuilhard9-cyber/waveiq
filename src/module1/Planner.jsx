@@ -116,7 +116,7 @@ export default function Planner({ T, onGoToConditions, isMobile }) {
         </div>
         {/* Map */}
         <div style={{flex:isMobile?undefined:1,overflow:"hidden",height:isMobile?300:undefined}}>
-          <WorldMap spots={filteredSpots} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)} dark={false}/>
+          <WorldMap spots={filteredSpots} sport={sport} month={month} selectedId={selected?.id} onSelect={s=>setSelected(selected?.id===s.id?null:s)}/>
         </div>
       </div>
     </div>

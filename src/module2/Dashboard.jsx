@@ -224,7 +224,7 @@ function SwellArrow({ dir, period, T }) {
   );
 }
 
-export default function Dashboard({ T, dark, isMobile, initialSpot, onClearInitial }) {
+export default function Dashboard({ T, isMobile, initialSpot, onClearInitial }) {
   const [geo,     setGeo]     = useState(null);
   const [nearby,  setNearby]  = useState([]);
   const [query,   setQuery]   = useState("");
@@ -688,7 +688,7 @@ export default function Dashboard({ T, dark, isMobile, initialSpot, onClearIniti
 
       {/* Right: world map */}
       <div style={{flex:1,overflow:"hidden",minHeight:isMobile?300:undefined}}>
-        <WorldMap spots={S} sport="surf" month={new Date().getMonth()} selectedId={null} onSelect={pick} dark={dark}/>
+        <WorldMap spots={S} sport="surf" month={new Date().getMonth()} selectedId={null} onSelect={pick}/>
       </div>
     </div>
   );

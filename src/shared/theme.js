@@ -1,16 +1,5 @@
-export function makeTheme(dark = false) {
-  return dark ? {
-    bg:          '#0f172a',
-    card:        '#1e293b',
-    border:      '#334155',
-    line:        '#1e293b',
-    text:        '#f1f5f9',
-    sub:         '#94a3b8',
-    hi:          '#1e293b',
-    accent:      '#0ea5e9',
-    shadow:      '0 1px 3px rgba(0,0,0,0.30)',
-    shadowHover: '0 4px 16px rgba(0,0,0,0.50)',
-  } : {
+export function makeTheme() {
+  return {
     bg:          '#f8fafc',
     card:        '#ffffff',
     border:      '#e2e8f0',

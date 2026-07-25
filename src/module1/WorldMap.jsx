@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps';
+import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup, useZoomPanContext } from 'react-simple-maps';
 import { gradeScore, gradeLabel, gradeColor } from '../data/spots';
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
@@ -9,23 +9,42 @@ const HEATMAP_COLORS = {A:'#22c55e',B:'#84cc16',C:'#f59e0b',D:'#f97316',F:'#ef44
 const WIND_COLORS = {1:'#bfdbfe',2:'#bfdbfe',3:'#60a5fa',4:'#2563eb',5:'#1e3a8a'};
 const WAVE_COLORS = {1:'#d1fae5',2:'#6ee7b7',3:'#10b981',4:'#047857',5:'#064e3b'};
 
-function drawBarb(ctx, cx, cy, dirRad, spd, col) {
-  const L = 24;
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(dirRad);
-  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.3; ctx.globalAlpha = 0.82;
-  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-L); ctx.stroke();
-  let rem = Math.round(spd/5)*5, y = -L;
-  while (rem >= 50) {
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(10,y+4); ctx.lineTo(0,y+8); ctx.closePath(); ctx.fill();
-    y += 9; rem -= 50;
+// Simplified atmospheric circulation model (trade winds / westerlies / polar easterlies by
+// latitude band) so wind/wave glyphs vary sensibly by region instead of one direction for
+// the whole planet. Not live meteorological data — that would need a gridded wind API.
+function prevailingDir(lat, lng) {
+  const a = Math.abs(lat);
+  const base = a < 30 ? (lat >= 0 ? 235 : 305) : a < 60 ? (lat >= 0 ? 65 : 115) : (lat >= 0 ? 235 : 305);
+  const jitter = Math.sin(lng * Math.PI / 180) * 16;
+  return (base + jitter + 360) % 360;
+}
+
+function metricAvg(spotsArr, metric, month) {
+  const vals = spotsArr.map(s => s[metric]?.[month] ?? s.seasonal?.[metric]?.[month] ?? 3);
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
+function vectorColor(kts) {
+  return kts > 25 ? '#f97316' : kts > 15 ? '#f59e0b' : kts > 8 ? '#22c55e' : '#93c5fd';
+}
+
+function computeVector(cl, metric, month) {
+  const kts = metricAvg(cl.spots, metric, month) * 6;
+  const dirDeg = prevailingDir(cl.lat, cl.lng);
+  return { dirDeg, dirRad: dirDeg * Math.PI / 180, kts, col: vectorColor(kts) };
+}
+
+function bboxCenterAndSpan(spotsArr) {
+  let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+  for (const s of spotsArr) {
+    minLat = Math.min(minLat, s.lat); maxLat = Math.max(maxLat, s.lat);
+    minLng = Math.min(minLng, s.lng); maxLng = Math.max(maxLng, s.lng);
   }
-  while (rem >= 10) {
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(10,y-4); ctx.stroke();
-    y += 5; rem -= 10;
-  }
-  if (rem >= 5) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(5,y-2); ctx.stroke(); }
-  ctx.beginPath(); ctx.arc(0,0,2.5,0,Math.PI*2); ctx.fill();
-  ctx.restore();
+  return { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2, span: Math.max(maxLat - minLat, maxLng - minLng, 0.4) };
+}
+
+function zoomForSpan(span) {
+  return Math.max(1.6, Math.min(12, 26 / span));
 }
 
 function getClusterRadius(zoom) {
@@ -50,6 +69,66 @@ function clusterSpots(spots, zoom) {
   return clusters;
 }
 
+function WindArrowGlyph({ dirDeg, kts, color }) {
+  const len = 7 + Math.min(kts, 30) * 0.32;
+  return (
+    <g transform={`rotate(${dirDeg})`} style={{pointerEvents:"none"}} opacity={0.9}>
+      <line x1={0} y1={len} x2={0} y2={-len} stroke={color} strokeWidth={1.4} strokeLinecap="round"/>
+      <polygon points={`0,${-len-4} -3,${-len+3} 3,${-len+3}`} fill={color}/>
+    </g>
+  );
+}
+
+function WindBarbGlyph({ dirDeg, kts, color }) {
+  const L = 14;
+  const flags = [];
+  let rem = Math.round(kts/5)*5, y = -L, i = 0;
+  while (rem >= 50) { flags.push(<polygon key={i++} points={`0,${y} 6,${y+3} 0,${y+6}`} fill={color}/>); y += 7; rem -= 50; }
+  while (rem >= 10) { flags.push(<line key={i++} x1={0} y1={y} x2={6} y2={y-3} stroke={color} strokeWidth={1.1}/>); y += 4; rem -= 10; }
+  if (rem >= 5) flags.push(<line key={i} x1={0} y1={y} x2={3.5} y2={y-1.5} stroke={color} strokeWidth={1.1}/>);
+  return (
+    <g transform={`rotate(${dirDeg})`} style={{pointerEvents:"none"}} opacity={0.9}>
+      <line x1={0} y1={0} x2={0} y2={-L} stroke={color} strokeWidth={1.1}/>
+      {flags}
+      <circle r={1.8} fill={color}/>
+    </g>
+  );
+}
+
+// Markers live inside a group that gets scale(zoom) applied to it, so without this their fixed-size
+// circles/text/glyphs would balloon at high zoom and shrink to dust at low zoom. Counter-scale by
+// 1/k (read live from context, not React state, so it stays correct mid-gesture too).
+function ScaleFix({ children }) {
+  const { k } = useZoomPanContext();
+  return <g transform={`scale(${1 / (k || 1)})`}>{children}</g>;
+}
+
+function FlowGlyph({ id, vx, vy, color, registry }) {
+  const elsRef = useRef([]);
+  const N = 5;
+
+  useEffect(() => {
+    const particles = Array.from({length:N}, () => ({
+      x: (Math.random()*2-1)*10, y: (Math.random()*2-1)*10, age: Math.random()
+    }));
+    registry.current.set(id, { els: elsRef.current, particles, vx, vy });
+    return () => { registry.current.delete(id); };
+  }, [id]);
+
+  useEffect(() => {
+    const entry = registry.current.get(id);
+    if (entry) { entry.vx = vx; entry.vy = vy; entry.color = color; }
+  }, [id, vx, vy, color, registry]);
+
+  return (
+    <g style={{pointerEvents:"none"}}>
+      {Array.from({length:N}).map((_,i) => (
+        <line key={i} ref={el => (elsRef.current[i] = el)} x1={0} y1={0} x2={0} y2={0} stroke={color} strokeWidth={1.2} strokeLinecap="round"/>
+      ))}
+    </g>
+  );
+}
+
 export default function WorldMap({ spots, sport, month, selectedId, onSelect, T }) {
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState([10, 10]);
@@ -59,9 +138,8 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, T 
   const [popupCluster, setPopupCluster] = useState(null);
   const popupRef = useRef(null);
   const mapRef = useRef(null);
-  const canvasRef = useRef(null);
-  const animRef = useRef(null);
-  const particlesRef = useRef([]);
+  const zoomAnimRef = useRef(null);
+  const flowRegistry = useRef(new Map());
 
   const bg   = "#0e6fa0";
   const land = "#d4e6b0";
@@ -79,69 +157,56 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, T 
     return () => document.removeEventListener('mousedown', handler);
   }, [popupCluster]);
 
-  useEffect(() => {
-    cancelAnimationFrame(animRef.current);
-    if (canvasRef.current?.parentNode) canvasRef.current.parentNode.removeChild(canvasRef.current);
-    canvasRef.current = null; particlesRef.current = [];
-
-    if (mapMode === "grade") return;
-    const container = mapRef.current;
-    if (!container) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;';
-    container.appendChild(canvas);
-    canvasRef.current = canvas;
-    const W = container.offsetWidth || 800, H = container.offsetHeight || 500;
-    canvas.width = W; canvas.height = H;
-
-    const avgScore = spots.reduce((s,sp) => s + (sp.wind?.[month] ?? sp.seasonal?.wind?.[month] ?? 3), 0) / spots.length;
-    const windKts = avgScore * 6;
-    const dirRad = 260 * Math.PI / 180;
-    const col = windKts > 25 ? '#f97316' : windKts > 15 ? '#f59e0b' : windKts > 8 ? '#22c55e' : '#93c5fd';
-    const ctx = canvas.getContext('2d');
-
-    if (vizMode === "flow") {
-      const COUNT = 500, MAX_AGE = 100;
-      const vx = Math.sin(dirRad) * windKts * 0.018;
-      const vy = -Math.cos(dirRad) * windKts * 0.018;
-      particlesRef.current = Array.from({length:COUNT}, () => ({
-        x: Math.random()*W, y: Math.random()*H, age: Math.floor(Math.random()*MAX_AGE)
-      }));
-      const animate = () => {
-        ctx.clearRect(0,0,W,H); ctx.lineCap='round';
-        for (const p of particlesRef.current) {
-          const ox=p.x, oy=p.y; p.age++;
-          if (p.age>=MAX_AGE||p.x<-10||p.x>W+10||p.y<-10||p.y>H+10) { p.x=Math.random()*W; p.y=Math.random()*H; p.age=0; continue; }
-          p.x+=vx; p.y+=vy;
-          ctx.globalAlpha = Math.sin(Math.PI*p.age/MAX_AGE)*0.85;
-          ctx.strokeStyle=col; ctx.lineWidth=1.5;
-          ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(p.x,p.y); ctx.stroke();
-        }
-        ctx.globalAlpha=1; animRef.current=requestAnimationFrame(animate);
-      };
-      animate();
-    } else if (vizMode === "arrows") {
-      const S=60, cols=Math.ceil(W/S)+1, rows=Math.ceil(H/S)+1;
-      const len = 10 + Math.min(windKts,30)*0.4;
-      ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=1.5; ctx.globalAlpha=0.85; ctx.lineCap='round';
-      for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
-        ctx.save(); ctx.translate((c+0.5)*S,(r+0.5)*S); ctx.rotate(dirRad);
-        ctx.beginPath(); ctx.moveTo(0,len); ctx.lineTo(0,-len); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0,-len); ctx.lineTo(-4,-len+8); ctx.lineTo(4,-len+8); ctx.closePath(); ctx.fill();
-        ctx.restore();
-      }
-    } else if (vizMode === "barbs") {
-      const S=70, cols=Math.ceil(W/S)+1, rows=Math.ceil(H/S)+1;
-      for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) drawBarb(ctx,(c+0.5)*S,(r+0.5)*S,dirRad,windKts,col);
-    }
-
-    return () => {
-      cancelAnimationFrame(animRef.current);
-      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
-      canvasRef.current = null; particlesRef.current = [];
+  // Smoothly animate zoom/center instead of snapping — used by +/- buttons, reset, region clicks.
+  // Native drag/scroll gestures are already smooth (handled internally by the map library).
+  const animateTo = useCallback((targetZoom, targetCenter, duration = 450) => {
+    cancelAnimationFrame(zoomAnimRef.current);
+    const sz = zoom, sc = center;
+    const t0 = performance.now();
+    const tick = (now) => {
+      const t = Math.min(1, (now - t0) / duration);
+      const e = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3) / 2;
+      setZoom(sz + (targetZoom - sz) * e);
+      setCenter([sc[0] + (targetCenter[0]-sc[0])*e, sc[1] + (targetCenter[1]-sc[1])*e]);
+      if (t < 1) zoomAnimRef.current = requestAnimationFrame(tick);
     };
-  }, [mapMode, vizMode, month, spots]); // eslint-disable-line
+    zoomAnimRef.current = requestAnimationFrame(tick);
+  }, [zoom, center]);
+
+  useEffect(() => () => cancelAnimationFrame(zoomAnimRef.current), []);
+
+  const handleMoveEnd = useCallback(({ zoom: z, coordinates }) => { setZoom(z); setCenter(coordinates); }, []);
+
+  // Single rAF loop driving every "flow" glyph on screen — mutates SVG line refs directly so
+  // panning/zooming doesn't fight with React re-renders, and each glyph tracks its own map anchor.
+  useEffect(() => {
+    if (mapMode === "grade" || vizMode !== "flow") return;
+    const R = 10;
+    let raf;
+    const tick = () => {
+      flowRegistry.current.forEach(entry => {
+        const { els, particles, vx, vy } = entry;
+        particles.forEach((p, i) => {
+          const ox = p.x, oy = p.y;
+          p.x += vx; p.y += vy; p.age += 0.015;
+          if (p.age >= 1 || Math.hypot(p.x, p.y) > R) {
+            p.x = (Math.random()*2-1) * R * 0.5;
+            p.y = (Math.random()*2-1) * R * 0.5;
+            p.age = 0;
+          }
+          const el = els[i];
+          if (el) {
+            el.setAttribute('x1', ox); el.setAttribute('y1', oy);
+            el.setAttribute('x2', p.x); el.setAttribute('y2', p.y);
+            el.setAttribute('opacity', (Math.sin(Math.PI * Math.min(p.age, 1)) * 0.85).toFixed(2));
+          }
+        });
+      });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [mapMode, vizMode]);
 
   const getSpotColor = useCallback((s) => {
     if (mapMode === "wind") return WIND_COLORS[s.wind?.[month] ?? s.seasonal?.wind?.[month]] || '#bfdbfe';
@@ -161,6 +226,18 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, T 
     return showHeatmap;
   };
 
+  const renderVectorGlyph = (cl) => {
+    if (mapMode === "grade") return null;
+    const v = computeVector(cl, mapMode === "wave" ? "swell" : "wind", month);
+    if (vizMode === "arrows") return <WindArrowGlyph dirDeg={v.dirDeg} kts={v.kts} color={v.col}/>;
+    if (vizMode === "barbs") return <WindBarbGlyph dirDeg={v.dirDeg} kts={v.kts} color={v.col}/>;
+    if (vizMode === "flow") {
+      const vx = Math.sin(v.dirRad) * v.kts * 0.03, vy = -Math.cos(v.dirRad) * v.kts * 0.03;
+      return <FlowGlyph id={cl.id} vx={vx} vy={vy} color={v.col} registry={flowRegistry}/>;
+    }
+    return null;
+  };
+
   const handleClusterClick = (cl, e) => {
     if (cl.isCluster && zoom >= 8) {
       // High zoom with overlapping spots: show popup
@@ -169,8 +246,8 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, T 
       const y = e ? e.clientY - (rect?.top || 0) : 0;
       setPopupCluster({ spots: cl.spots, lng: cl.lng, lat: cl.lat, x, y });
     } else if (cl.isCluster) {
-      setZoom(z => Math.min(z * 2, 16));
-      setCenter([cl.lng, cl.lat]);
+      const { lat, lng, span } = bboxCenterAndSpan(cl.spots);
+      animateTo(Math.max(zoomForSpan(span), zoom * 1.3), [lng, lat]);
       setPopupCluster(null);
     } else {
       onSelect(cl.spots[0]);
@@ -194,32 +271,35 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, T 
     );
   };
 
-  const renderSpot = (s, key) => {
+  const renderSpot = (cl, s) => {
     const g   = gradeLabel(gradeScore(s, sport, month));
     const col = getSpotColor(s);
     const sel = s.id === selectedId;
     const hc  = getHaloColor(s);
     return (
-      <Marker key={key || s.id} coordinates={[s.lng, s.lat]} onClick={() => { onSelect(s); setPopupCluster(null); }}>
-        {showHalo(s) && <>
-          <circle r={90} fill={hc} opacity={0.08} style={{pointerEvents:"none"}}/>
-          <circle r={50} fill={hc} opacity={0.18} style={{pointerEvents:"none"}}/>
-          <circle r={22} fill={hc} opacity={0.28} style={{pointerEvents:"none"}}/>
-        </>}
-        <circle r={sel?10:6} fill={col} stroke="white" strokeWidth={sel?2.5:1.5}
-          style={{cursor:"pointer", filter:sel?`drop-shadow(0 0 8px ${col})`:"none", transition:"r .15s"}} />
-        {mapMode === "grade" && (
-          <text textAnchor="middle" y={sel?-14:-10}
-            style={{fontSize:sel?10:8, fontWeight:700, fill:col, fontFamily:"DM Mono,monospace", pointerEvents:"none", opacity:sel?1:0.85}}>
-            {g}
-          </text>
-        )}
-        {(sel || showLabels) && (
-          <text textAnchor="middle" y={22}
-            style={{fontSize:9, fontWeight:600, fill:sel?"white":"#475569", fontFamily:"DM Sans,sans-serif", pointerEvents:"none"}}>
-            {s.name}
-          </text>
-        )}
+      <Marker key={cl.id} coordinates={[s.lng, s.lat]} onClick={() => { onSelect(s); setPopupCluster(null); }}>
+        <ScaleFix>
+          {showHalo(s) && <>
+            <circle r={90} fill={hc} opacity={0.08} style={{pointerEvents:"none"}}/>
+            <circle r={50} fill={hc} opacity={0.18} style={{pointerEvents:"none"}}/>
+            <circle r={22} fill={hc} opacity={0.28} style={{pointerEvents:"none"}}/>
+          </>}
+          <circle r={sel?10:6} fill={col} stroke="white" strokeWidth={sel?2.5:1.5}
+            style={{cursor:"pointer", filter:sel?`drop-shadow(0 0 8px ${col})`:"none", transition:"r .15s"}} />
+          {renderVectorGlyph(cl)}
+          {mapMode === "grade" && (
+            <text textAnchor="middle" y={sel?-14:-10}
+              style={{fontSize:sel?10:8, fontWeight:700, fill:col, fontFamily:"DM Mono,monospace", pointerEvents:"none", opacity:sel?1:0.85}}>
+              {g}
+            </text>
+          )}
+          {(sel || showLabels) && (
+            <text textAnchor="middle" y={22}
+              style={{fontSize:9, fontWeight:600, fill:sel?"white":"#475569", fontFamily:"DM Sans,sans-serif", pointerEvents:"none"}}>
+              {s.name}
+            </text>
+          )}
+        </ScaleFix>
       </Marker>
     );
   };
@@ -231,7 +311,7 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, T 
         projectionConfig={{scale:155, center:[10, 10]}}
         style={{width:"100%",height:"100%"}}
       >
-        <ZoomableGroup zoom={zoom} center={center} onMoveEnd={({zoom:z, coordinates})=>{setZoom(z);setCenter(coordinates);}}>
+        <ZoomableGroup zoom={zoom} center={center} minZoom={1} maxZoom={12} onMoveEnd={handleMoveEnd}>
           <Geographies geography={GEO_URL}>
             {({geographies}) => geographies.map(geo => (
               <Geography key={geo.rsmKey} geography={geo}
@@ -248,12 +328,15 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, T 
               return (
                 <Marker key={cl.id} coordinates={[cl.lng, cl.lat]}
                   onClick={(e) => handleClusterClick(cl, e)}>
-                  {renderClusterDot(cl)}
-                  {renderClusterText(cl)}
+                  <ScaleFix>
+                    {renderClusterDot(cl)}
+                    {renderVectorGlyph(cl)}
+                    {renderClusterText(cl)}
+                  </ScaleFix>
                 </Marker>
               );
             }
-            return renderSpot(cl.spots[0], cl.id);
+            return renderSpot(cl, cl.spots[0]);
           })}
         </ZoomableGroup>
       </ComposableMap>
@@ -301,7 +384,9 @@ export default function WorldMap({ spots, sport, month, selectedId, onSelect, T 
 
       {/* Zoom controls — bottom left */}
       <div style={{position:"absolute",bottom:16,left:16,display:"flex",flexDirection:"column",gap:4}}>
-        {[["+",()=>setZoom(z=>Math.min(z*1.5,16))],["\u2212",()=>setZoom(z=>Math.max(z/1.5,1))],["\u21BA",()=>{setZoom(1);setCenter([10,10]);setPopupCluster(null);}]].map(([label,fn],i)=>(
+        {[["+",()=>animateTo(Math.min(zoom*1.6,12), center)],
+          ["−",()=>animateTo(Math.max(zoom/1.6,1), center)],
+          ["↺",()=>{animateTo(1,[10,10]);setPopupCluster(null);}]].map(([label,fn],i)=>(
           <button key={i} onClick={fn}
             style={{width:28,height:28,borderRadius:4,border:"none",background:"white",color:"#0ea5e9",fontSize:16,fontWeight:700,
               cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",

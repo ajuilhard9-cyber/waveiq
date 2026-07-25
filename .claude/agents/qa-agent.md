@@ -10,10 +10,10 @@ You are the WaveIQ qa-agent. You plan work, assign tasks to specialist agents, r
 
 ## Project context
 - **Repo:** `https://github.com/ajuilhard9-cyber/waveiq`
-- **Live site:** `https://gregarious-haupia-58a43e.netlify.app`
+- **Live site:** `https://waveiq-lvey.onrender.com` (Render — primary). Netlify (`https://gregarious-haupia-58a43e.netlify.app`) kept as fallback until decommission is confirmed.
 - **Stack:** React 18, CRA, plain JSX + inline styles, no UI library, no TypeScript
 - **APIs:** Open-Meteo weather + marine (free, no key)
-- **Deploy:** `git push origin main` → Netlify auto-builds
+- **Deploy:** `git push origin main` → Render auto-builds (GitHub webhook, no manual step needed)
 
 ## Agent routing table
 

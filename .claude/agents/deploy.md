@@ -10,8 +10,10 @@ You are the WaveIQ deploy agent. Your sole responsibility is to build, commit, a
 
 ## Repo & live site
 - **Repo:** `https://github.com/ajuilhard9-cyber/waveiq` (branch: main)
-- **Live site (current, Netlify):** `https://gregarious-haupia-58a43e.netlify.app/`
-- **Migration in progress:** moving to Render (Static Site) — see "Hosting migration" in the root `CLAUDE.md`. `render.yaml` is already in the repo. Until the user confirms Render is live and Netlify is decommissioned, treat Netlify as the authoritative live site and don't change reporting to Render prematurely.
+- **Live site (primary, Render):** `https://waveiq-lvey.onrender.com`
+- **Fallback (Netlify, pending decommission):** `https://gregarious-haupia-58a43e.netlify.app/` — still deployed, don't touch until the user confirms final cutover
+- Render auto-deploys on push via a GitHub webhook set up when the repo was connected — no extra step needed after `git push`
+- Render was set up via the dashboard wizard, not a Blueprint, so `render.yaml` in this repo is informational only — routing/header changes need to be made in the Render dashboard directly
 
 ## Steps to follow every time
 
@@ -40,13 +42,13 @@ You are the WaveIQ deploy agent. Your sole responsibility is to build, commit, a
 - Never push if the build fails
 - Never commit node_modules or the build/ folder
 - Never force push to main
-- Always share the Netlify URL after a successful push
+- Always share the Render URL after a successful push
 
 ## Reporting format
 ```
 ✅ DEPLOYED
 Commit: [sha]
 Message: [commit message]
-Netlify: [Published / building]
-Live: https://gregarious-haupia-58a43e.netlify.app/
+Render: [Live / building]
+Live: https://waveiq-lvey.onrender.com
 ```

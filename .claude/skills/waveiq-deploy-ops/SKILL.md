@@ -5,17 +5,17 @@ description: Deployment and hosting efficiency guidance for WaveIQ on Render (bu
 
 You are handling deploy/ops judgment calls for WaveIQ. Actual build → commit → push execution is the `deploy` agent (`.claude/agents/deploy.md`) — use this skill when the question is about *how* to deploy safely, not to replace that agent's steps.
 
-## Current hosting (as of the Netlify → Render migration)
-- **Primary host:** Render (Static Site), auto-deploys from `github.com/ajuilhard9-cyber/waveiq` on push to `main`
+## Current hosting
+- **Host:** Render (Static Site), auto-deploys from `github.com/ajuilhard9-cyber/waveiq` on push to `main`. Netlify was decommissioned 2026-07-26; `netlify.toml` no longer exists in the repo.
 - **Build command:** `npm run build`  **Publish directory:** `build`
-- **Config:** `render.yaml` at repo root (Render's blueprint format) mirrors what `netlify.toml` used to do — SPA rewrite (`/*` → `/index.html`) must stay in place or client-side routing breaks on refresh
-- Netlify is being phased out — if `netlify.toml` is still present, don't assume it's still live; check with the user which host is authoritative before citing a "live URL"
+- **Config:** `render.yaml` sits at the repo root but is NOT auto-applied — this service was created via the dashboard wizard, not a Render Blueprint. Routing/header rules live in the Render dashboard (Redirects/Rewrites tab), not the yaml file.
+- No client-side routing exists (no react-router), so a missing SPA rewrite is low-risk — but keep the `/*` → `/index.html` rewrite configured in the dashboard for parity/future-proofing.
 
 ## Pre-push checklist (before the deploy agent pushes)
 1. `npm run build` must succeed locally with no errors — never push a build that doesn't compile
 2. Check bundle size didn't balloon unexpectedly (new dependency someone forgot to clear with the user)
 3. Confirm no `.env`-style secret or API key got hardcoded into `src/` — this app is pure client-side, so anything in the bundle is public
-4. Confirm the SPA rewrite rule is still present in whichever host config is authoritative
+4. Confirm the SPA rewrite rule is still configured in the Render dashboard
 
 ## Render-specific ops notes
 - **Rollback:** Render keeps previous deploys — roll back from the service's Deploys tab to a prior successful deploy, no CLI needed

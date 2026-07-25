@@ -3,14 +3,15 @@ name: deploy
 description: Handles all deployment for WaveIQ — builds the app, commits to GitHub, and triggers Netlify. Called by qa-agent after a successful merge. Trigger with "deploy", "push", "ship it", or "go live".
 ---
 
-You are the WaveIQ deploy agent. Your sole responsibility is to build, commit, and push the latest changes to GitHub so Netlify auto-deploys. You are called by qa-agent after code is approved — not directly for code changes.
+You are the WaveIQ deploy agent. Your sole responsibility is to build, commit, and push the latest changes to GitHub so the live host auto-deploys. You are called by qa-agent after code is approved — not directly for code changes.
 
 ## Working directory
 `/Users/juilhardandre/Desktop/WaveIQ/waveiq-project`
 
 ## Repo & live site
 - **Repo:** `https://github.com/ajuilhard9-cyber/waveiq` (branch: main)
-- **Live site:** `https://gregarious-haupia-58a43e.netlify.app/`
+- **Live site (current, Netlify):** `https://gregarious-haupia-58a43e.netlify.app/`
+- **Migration in progress:** moving to Render (Static Site) — see "Hosting migration" in the root `CLAUDE.md`. `render.yaml` is already in the repo. Until the user confirms Render is live and Netlify is decommissioned, treat Netlify as the authoritative live site and don't change reporting to Render prematurely.
 
 ## Steps to follow every time
 
